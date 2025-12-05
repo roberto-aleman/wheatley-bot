@@ -126,3 +126,174 @@ def test_get_timezone_from_state_returns_users_timezone() -> None:
 
     tz = bot.get_timezone_from_state(state, user_id=999)
     assert tz is None
+
+
+def test_set_day_availability_creates_user_and_initial_availability() -> None:
+    """
+    set_day_availability_in_state should:
+    - create the user entry if missing
+    - create an availability dict with all DAY_KEYS
+    - set exactly one interval for the given day
+    """
+    state = {"users": {}}
+
+    bot.set_day_availability_in_state(
+        state,
+        user_id=123,
+        day="mon",
+        start="18:00",
+        end="22:00",
+    )
+
+    user = state["users"]["123"]
+    assert "availability" in user
+
+    availability = user["availability"]
+    # All day keys should exist
+    for day in bot.DAY_KEYS:
+        assert day in availability
+
+    # Only Monday should have a slot; others should be empty
+    assert availability["mon"] == [{"start": "18:00", "end": "22:00"}]
+    for day in bot.DAY_KEYS:
+        if day != "mon":
+            assert availability[day] == []
+
+
+def test_set_day_availability_overwrites_existing_interval() -> None:
+    """
+    set_day_availability_in_state should:
+    - overwrite an existing day's interval, not append a second one
+    """
+    state = {"users": {}}
+
+    bot.set_day_availability_in_state(
+        state,
+        user_id=123,
+        day="fri",
+        start="18:00",
+        end="22:00",
+    )
+    bot.set_day_availability_in_state(
+        state,
+        user_id=123,
+        day="fri",
+        start="19:30",
+        end="23:00",
+    )
+
+    availability = state["users"]["123"]["availability"]
+    assert availability["fri"] == [{"start": "19:30", "end": "23:00"}]
+    # Still exactly one interval
+    assert len(availability["fri"]) == 1
+
+
+def test_set_day_availability_clears_day_when_start_or_end_missing() -> None:
+    """
+    set_day_availability_in_state should:
+    - clear the day's availability when start or end is falsy
+    """
+    state = {"users": {}}
+
+    # Start with a defined interval
+    bot.set_day_availability_in_state(
+        state,
+        user_id=123,
+        day="wed",
+        start="18:00",
+        end="22:00",
+    )
+
+    # Clear using None values
+    bot.set_day_availability_in_state(
+        state,
+        user_id=123,
+        day="wed",
+        start=None,
+        end=None,
+    )
+
+    availability = state["users"]["123"]["availability"]
+    assert availability["wed"] == []
+
+
+def test_get_availability_returns_all_days_empty_for_missing_user() -> None:
+    """
+    get_availability_from_state should:
+    - return an all-days-empty dict for missing users
+    - not create the user in state as a side effect
+    """
+    state = {"users": {}}
+
+    availability = bot.get_availability_from_state(state, user_id=123)
+
+    # All DAY_KEYS present, all empty lists
+    for day in bot.DAY_KEYS:
+        assert day in availability
+        assert availability[day] == []
+
+    # State should still not have this user
+    assert "123" not in state["users"]
+
+
+def test_get_availability_normalizes_partial_availability() -> None:
+    """
+    get_availability_from_state should:
+    - normalize a partially defined availability dict
+    - keep existing intervals for defined days
+    - add missing DAY_KEYS as empty lists
+    """
+    state = {
+        "users": {
+            "123": {
+                "games": [],
+                "availability": {
+                    "mon": [{"start": "18:00", "end": "22:00"}],
+                },
+            }
+        }
+    }
+
+    availability = bot.get_availability_from_state(state, user_id=123)
+
+    # Existing day preserved
+    assert availability["mon"] == [{"start": "18:00", "end": "22:00"}]
+
+    # All DAY_KEYS present
+    for day in bot.DAY_KEYS:
+        assert day in availability
+
+    # Days that were not originally present should be empty
+    for day in bot.DAY_KEYS:
+        if day != "mon":
+            assert availability[day] == []
+
+
+def test_get_availability_returns_copies_not_backed_by_state() -> None:
+    """
+    get_availability_from_state should:
+    - return a structure not backed by the underlying state
+    - mutating the returned dict or lists should not mutate state
+    """
+    state = {
+        "users": {
+            "123": {
+                "games": [],
+                "availability": {
+                    "mon": [{"start": "18:00", "end": "22:00"}],
+                },
+            }
+        }
+    }
+
+    availability = bot.get_availability_from_state(state, user_id=123)
+
+    # Mutate the returned structure
+    availability["mon"].append({"start": "10:00", "end": "12:00"})
+    availability["tue"] = [{"start": "09:00", "end": "11:00"}]
+
+    # Underlying state should be unchanged
+    stored_availability = state["users"]["123"]["availability"]
+    assert stored_availability["mon"] == [{"start": "18:00", "end": "22:00"}]
+    # "tue" should only exist if normalization added it, but it should still be []
+    assert stored_availability.get("tue", []) == []
