@@ -317,6 +317,52 @@ intents = discord.Intents.default()
 client = WheatleyClient(intents=intents)
 
 
+class RemoveGameSelect(discord.ui.Select):
+    """Select menu that lets a user pick one of their games to remove."""
+
+    def __init__(self, games: list[str]) -> None:
+        # Discord limits a select to 25 options; truncate if needed.
+        options = [discord.SelectOption(label=game, value=game) for game in games[:25]]
+
+        super().__init__(
+            placeholder="Select a game to remove...",
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        """Handle the user selecting a game to remove."""
+        wheatley = cast(WheatleyClient, interaction.client)
+        state = wheatley.state
+
+        user_id = interaction.user.id
+        selected_game = self.values[0]
+
+        removed = remove_game_from_state(state, user_id, selected_game)
+        if removed:
+            save_state(state)
+            message = f'Removed "{selected_game}" from your games.'
+        else:
+            message = f'"{selected_game}" is no longer in your games.'
+
+        # Disable the select so it can’t be reused
+        self.disabled = True
+
+        view = self.view  # parent RemoveGameView
+        # view should not be None because we added this Select to it
+        await interaction.response.edit_message(content=message, view=view)
+
+
+class RemoveGameView(discord.ui.View):
+    """View containing the remove-game select for a single user."""
+
+    def __init__(self, games: list[str]) -> None:
+        super().__init__(timeout=60)
+        # We only add the select if there are options; the command will guard this.
+        self.add_item(RemoveGameSelect(games))
+
+
 @client.tree.command(
     name="add-game",
     description="Add a game to your list.",
@@ -358,6 +404,36 @@ async def remove_game(interaction: discord.Interaction, game: str) -> None:
         message = f'"{game}" was not found in your games.'
 
     await interaction.response.send_message(message, ephemeral=True)
+
+
+@client.tree.command(
+    name="remove-game-menu",
+    description="Remove a game from your list using a dropdown menu.",
+    guild=GUILD,
+)
+async def remove_game_menu(interaction: discord.Interaction) -> None:
+    """Slash command to remove a game via a select menu."""
+    user_id = interaction.user.id
+
+    wheatley = cast(WheatleyClient, interaction.client)
+    state = wheatley.state
+
+    games = list_games_from_state(state, user_id)
+
+    if not games:
+        await interaction.response.send_message(
+            "You don't have any games saved.",
+            ephemeral=True,
+        )
+        return
+
+    view = RemoveGameView(games)
+
+    await interaction.response.send_message(
+        "Select a game to remove:",
+        view=view,
+        ephemeral=True,
+    )
 
 
 @client.tree.command(
