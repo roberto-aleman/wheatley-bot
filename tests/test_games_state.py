@@ -297,3 +297,70 @@ def test_get_availability_returns_copies_not_backed_by_state() -> None:
     assert stored_availability["mon"] == [{"start": "18:00", "end": "22:00"}]
     # "tue" should only exist if normalization added it, but it should still be []
     assert stored_availability.get("tue", []) == []
+
+
+def test_format_user_availability_missing_user() -> None:
+    state = {"users": {}}
+
+    msg = bot.format_user_availability(state, user_id=123)
+    lines = msg.splitlines()
+
+    assert lines[0] == "timezone: not set"
+    assert len(lines) == 1 + len(bot.DAY_KEYS)
+
+    days = [line.split(":")[0] for line in lines[1:]]
+    assert days == bot.DAY_KEYS
+
+    for line in lines[1:]:
+        assert line.endswith("none")
+
+
+def test_format_user_availability_with_timezone_and_single_day() -> None:
+    state = {"users": {}}
+    bot.set_timezone_in_state(state, user_id=123, tz="America/Los_Angeles")
+    bot.set_day_availability_in_state(
+        state,
+        user_id=123,
+        day="fri",
+        start="18:00",
+        end="22:00",
+    )
+
+    msg = bot.format_user_availability(state, user_id=123)
+    lines = msg.splitlines()
+
+    assert lines[0] == "timezone: America/Los_Angeles"
+
+    day_to_text = {line.split(":")[0]: line.split(": ")[1] for line in lines[1:]}
+
+    for day in bot.DAY_KEYS:
+        if day == "fri":
+            assert day_to_text[day] == "18:00-22:00"
+        else:
+            assert day_to_text[day] == "none"
+
+
+def test_format_user_availability_normalizes_partial_availability() -> None:
+    state = {
+        "users": {
+            "123": {
+                "games": [],
+                "availability": {
+                    "mon": [{"start": "10:00", "end": "12:00"}],
+                },
+            }
+        }
+    }
+
+    msg = bot.format_user_availability(state, user_id=123)
+    lines = msg.splitlines()
+
+    assert lines[0] == "timezone: not set"
+
+    day_to_text = {line.split(":")[0]: line.split(": ")[1] for line in lines[1:]}
+
+    assert day_to_text["mon"] == "10:00-12:00"
+
+    for day in bot.DAY_KEYS:
+        if day != "mon":
+            assert day_to_text[day] == "none"
