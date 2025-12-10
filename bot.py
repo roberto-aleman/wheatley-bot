@@ -597,5 +597,21 @@ async def set_availability(
     await interaction.response.send_message(message, ephemeral=True)
 
 
+@client.tree.command(
+    name="my-availability",
+    description="Show your saved weekly availability.",
+    guild=GUILD,
+)
+async def my_availability(interaction: discord.Interaction) -> None:
+    """Slash command to show the caller's weekly availability summary."""
+    wheatley = cast(WheatleyClient, interaction.client)
+    state = wheatley.state
+
+    user_id = interaction.user.id
+    summary = format_user_availability(state, user_id)
+
+    await interaction.response.send_message(summary, ephemeral=True)
+
+
 if __name__ == "__main__":
     client.run(TOKEN)
