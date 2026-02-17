@@ -57,13 +57,13 @@ A Discord bot for coordinating gaming sessions on a private server. Users save t
 
 ```
 wheatley-bot/
-├── bot.py                      # Client setup and entrypoint
-├── state.py                    # Database class (SQLite) and pure logic
+├── bot.py                      # Bot setup and entrypoint (commands.Bot)
+├── state.py                    # Database class (SQLite), versioned migrations, and pure logic
 ├── commands/
-│   ├── helpers.py              # BotClient protocol for type-safe access
-│   ├── games.py                # Game list commands
-│   ├── availability.py         # Timezone and availability commands
-│   └── matchmaking.py          # /ready-to-play command
+│   ├── helpers.py              # BotClient protocol and shared autocomplete helpers
+│   ├── games.py                # Game list commands (Cog)
+│   ├── availability.py         # Timezone and availability commands (Cog)
+│   └── matchmaking.py          # /ready-to-play command (Cog)
 ├── tests/
 │   └── test_games_state.py     # Unit tests for state logic
 ├── data/                       # Runtime data (gitignored)
