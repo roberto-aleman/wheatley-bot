@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from commands.helpers import BotClient, get_bot
-from state import DAY_KEYS, validate_time, validate_timezone
+from state import DAY_KEYS, validate_time
 
 US_TIMEZONES = [
     app_commands.Choice(name="Eastern", value="US/Eastern"),
