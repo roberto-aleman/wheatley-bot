@@ -48,6 +48,46 @@ def _empty_availability() -> dict[str, list[dict[str, str]]]:
     return {day: [] for day in DAY_KEYS}
 
 
+def _uid(user_id: int) -> str:
+    """Central conversion of Discord user ID to DB string key."""
+    return str(user_id)
+
+
+def _slots_overlap(s1_start: str, s1_end: str, s2_start: str, s2_end: str) -> bool:
+    """Check if two time slots overlap or are adjacent, handling overnight slots."""
+    # For overnight slots (start >= end), they always span to midnight and from midnight,
+    # so treat them as two ranges: [start, 24:00) and [00:00, end)
+    def ranges(s: str, e: str) -> list[tuple[str, str]]:
+        if s < e:
+            return [(s, e)]
+        # overnight: e.g. 22:00-02:00 → [22:00, 24:00) + [00:00, 02:00)
+        return [(s, "24:00"), ("00:00", e)]
+
+    for a_s, a_e in ranges(s1_start, s1_end):
+        for b_s, b_e in ranges(s2_start, s2_end):
+            if a_s <= b_e and a_e >= b_s:
+                return True
+    return False
+
+
+def _merge_slot(existing_start: str, existing_end: str, new_start: str, new_end: str) -> tuple[str, str]:
+    """Merge two overlapping slots, handling overnight correctly."""
+    e_overnight = existing_start >= existing_end
+    n_overnight = new_start >= new_end
+
+    # Both normal slots
+    if not e_overnight and not n_overnight:
+        return min(existing_start, new_start), max(existing_end, new_end)
+    # Both overnight
+    if e_overnight and n_overnight:
+        return min(existing_start, new_start), max(existing_end, new_end)
+    # Mixed: one normal, one overnight — result is overnight
+    # Take the earlier start; for end, the overnight end (small hour) wins
+    if e_overnight:
+        return min(existing_start, new_start), existing_end
+    return min(existing_start, new_start), new_end
+
+
 class Database:
     def __init__(self, path: Path = DB_PATH) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -71,7 +111,7 @@ class Database:
     def _ensure_user(self, user_id: int) -> None:
         self.conn.execute(
             "INSERT OR IGNORE INTO users (user_id) VALUES (?)",
-            (str(user_id),),
+            (_uid(user_id),),
         )
 
     # --- Games ---
@@ -82,7 +122,7 @@ class Database:
         self.conn.execute(
             "INSERT INTO games (user_id, game_name, normalized) VALUES (?, ?, ?) "
             "ON CONFLICT (user_id, normalized) DO UPDATE SET game_name = excluded.game_name",
-            (str(user_id), game_name, normalized),
+            (_uid(user_id), game_name, normalized),
         )
         self.conn.commit()
 
@@ -90,7 +130,7 @@ class Database:
         normalized = normalize_game_name(game_name)
         cur = self.conn.execute(
             "DELETE FROM games WHERE user_id = ? AND normalized = ?",
-            (str(user_id), normalized),
+            (_uid(user_id), normalized),
         )
         self.conn.commit()
         return cur.rowcount > 0
@@ -98,7 +138,7 @@ class Database:
     def list_games(self, user_id: int) -> list[str]:
         rows = self.conn.execute(
             "SELECT game_name FROM games WHERE user_id = ? ORDER BY rowid",
-            (str(user_id),),
+            (_uid(user_id),),
         ).fetchall()
         return [r[0] for r in rows]
 
@@ -108,7 +148,7 @@ class Database:
             "JOIN games b ON a.normalized = b.normalized "
             "WHERE a.user_id = ? AND b.user_id = ? "
             "ORDER BY a.rowid",
-            (str(user_id_a), str(user_id_b)),
+            (_uid(user_id_a), _uid(user_id_b)),
         ).fetchall()
         return [r[0] for r in rows]
 
@@ -118,14 +158,14 @@ class Database:
         self._ensure_user(user_id)
         self.conn.execute(
             "UPDATE users SET timezone = ? WHERE user_id = ?",
-            (tz, str(user_id)),
+            (tz, _uid(user_id)),
         )
         self.conn.commit()
 
     def get_timezone(self, user_id: int) -> str | None:
         row = self.conn.execute(
             "SELECT timezone FROM users WHERE user_id = ?",
-            (str(user_id),),
+            (_uid(user_id),),
         ).fetchone()
         if row and row[0]:
             return row[0]
@@ -137,9 +177,8 @@ class Database:
         self, user_id: int, day: str, start: str, end: str,
     ) -> None:
         self._ensure_user(user_id)
-        uid = str(user_id)
+        uid = _uid(user_id)
 
-        # Fetch existing slots for this day
         rows = self.conn.execute(
             "SELECT id, start_time, end_time FROM availability WHERE user_id = ? AND day = ?",
             (uid, day),
@@ -149,10 +188,8 @@ class Database:
         ids_to_delete: list[int] = []
 
         for row_id, s, e in rows:
-            # Check if the new slot overlaps or is adjacent to this existing slot
-            if new_start <= e and new_end >= s:
-                new_start = min(new_start, s)
-                new_end = max(new_end, e)
+            if _slots_overlap(new_start, new_end, s, e):
+                new_start, new_end = _merge_slot(s, e, new_start, new_end)
                 ids_to_delete.append(row_id)
 
         if ids_to_delete:
@@ -171,7 +208,7 @@ class Database:
     def clear_day_availability(self, user_id: int, day: str) -> None:
         self.conn.execute(
             "DELETE FROM availability WHERE user_id = ? AND day = ?",
-            (str(user_id), day),
+            (_uid(user_id), day),
         )
         self.conn.commit()
 
@@ -179,7 +216,7 @@ class Database:
         result = _empty_availability()
         rows = self.conn.execute(
             "SELECT day, start_time, end_time FROM availability WHERE user_id = ? ORDER BY start_time",
-            (str(user_id),),
+            (_uid(user_id),),
         ).fetchall()
         for day, start, end in rows:
             if day in result:
@@ -188,78 +225,100 @@ class Database:
 
     # --- Matchmaking ---
 
+    def _available_user_ids(self, now_utc: datetime) -> set[int]:
+        """Return user IDs that are available right now, filtering in bulk."""
+        rows = self.conn.execute(
+            "SELECT u.user_id, u.timezone FROM users u "
+            "WHERE u.timezone IS NOT NULL "
+            "AND EXISTS (SELECT 1 FROM availability a WHERE a.user_id = u.user_id)",
+        ).fetchall()
+
+        available: set[int] = set()
+        for uid_str, tz_name in rows:
+            try:
+                tz = ZoneInfo(tz_name)
+            except (KeyError, ValueError):
+                continue
+
+            local_now = now_utc.astimezone(tz)
+            today = DAY_KEYS[local_now.weekday()]
+            yesterday = DAY_KEYS[(local_now.weekday() - 1) % 7]
+            now_str = local_now.strftime("%H:%M")
+
+            # Normal window: start < end (e.g. 18:00–22:00)
+            row = self.conn.execute(
+                "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
+                "AND start_time < end_time AND start_time <= ? AND end_time > ?",
+                (uid_str, today, now_str, now_str),
+            ).fetchone()
+            if row:
+                available.add(int(uid_str))
+                continue
+
+            # Today's window spans midnight (start >= end), currently past start
+            row = self.conn.execute(
+                "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
+                "AND start_time >= end_time AND start_time <= ?",
+                (uid_str, today, now_str),
+            ).fetchone()
+            if row:
+                available.add(int(uid_str))
+                continue
+
+            # Yesterday's window spans midnight, we're in the early-morning portion
+            row = self.conn.execute(
+                "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
+                "AND start_time >= end_time AND end_time > ?",
+                (uid_str, yesterday, now_str),
+            ).fetchone()
+            if row:
+                available.add(int(uid_str))
+
+        return available
+
     def is_user_available_now(self, user_id: int, now_utc: datetime) -> bool:
-        tz_name = self.get_timezone(user_id)
-        if not tz_name:
-            return False
-
-        try:
-            tz = ZoneInfo(tz_name)
-        except (KeyError, ValueError):
-            return False
-
-        local_now = now_utc.astimezone(tz)
-        today = DAY_KEYS[local_now.weekday()]
-        yesterday = DAY_KEYS[(local_now.weekday() - 1) % 7]
-        now_str = local_now.strftime("%H:%M")
-        uid = str(user_id)
-
-        # Normal window: start < end (e.g. 18:00–22:00)
-        row = self.conn.execute(
-            "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
-            "AND start_time < end_time AND start_time <= ? AND end_time > ?",
-            (uid, today, now_str, now_str),
-        ).fetchone()
-        if row:
-            return True
-
-        # Today's window spans midnight (start >= end), currently past start
-        row = self.conn.execute(
-            "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
-            "AND start_time >= end_time AND start_time <= ?",
-            (uid, today, now_str),
-        ).fetchone()
-        if row:
-            return True
-
-        # Yesterday's window spans midnight, we're in the early-morning portion
-        row = self.conn.execute(
-            "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
-            "AND start_time >= end_time AND end_time > ?",
-            (uid, yesterday, now_str),
-        ).fetchone()
-        return row is not None
+        return user_id in self._available_user_ids(now_utc)
 
     def find_ready_players(
         self, invoker_id: int, now_utc: datetime, game_filter: str | None = None,
     ) -> list[tuple[int, list[str]]]:
+        available = self._available_user_ids(now_utc)
+        available.discard(invoker_id)
+
+        if not available:
+            return []
+
+        # Find common games between invoker and all available users in one query
+        placeholders = ",".join("?" * len(available))
+        params: list[str | int] = [_uid(invoker_id)]
+        params.extend(_uid(uid) for uid in available)
+
         rows = self.conn.execute(
-            "SELECT user_id FROM users WHERE user_id != ?",
-            (str(invoker_id),),
+            f"SELECT b.user_id, a.game_name, a.normalized FROM games a "
+            f"JOIN games b ON a.normalized = b.normalized "
+            f"WHERE a.user_id = ? AND b.user_id IN ({placeholders}) "
+            f"ORDER BY b.user_id, a.rowid",
+            params,
         ).fetchall()
 
+        norm_filter = normalize_game_name(game_filter) if game_filter else None
+
+        # Group by user
+        from itertools import groupby
         results: list[tuple[int, list[str]]] = []
-        for (user_key,) in rows:
-            other_id = int(user_key)
-            if not self.is_user_available_now(other_id, now_utc):
-                continue
-
-            common = self.get_common_games(invoker_id, other_id)
-            if not common:
-                continue
-
-            if game_filter:
-                norm_filter = normalize_game_name(game_filter)
-                common = [g for g in common if normalize_game_name(g) == norm_filter]
-                if not common:
+        for uid_str, group in groupby(rows, key=lambda r: r[0]):
+            games = []
+            for _, game_name, normalized in group:
+                if norm_filter and normalized != norm_filter:
                     continue
-
-            results.append((other_id, common))
+                games.append(game_name)
+            if games:
+                results.append((int(uid_str), games))
 
         results.sort(key=lambda x: x[0])
         return results
 
-    # --- Migration ---
+    # --- Stats ---
 
     def user_count(self) -> int:
         row = self.conn.execute("SELECT COUNT(*) FROM users").fetchone()
