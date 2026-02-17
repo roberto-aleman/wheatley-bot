@@ -4,7 +4,6 @@ import discord
 from discord import app_commands
 
 from commands.helpers import BotClient, get_bot
-from state import Database, normalize_game_name
 
 client: discord.Client
 GUILD: discord.Object

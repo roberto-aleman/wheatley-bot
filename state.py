@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo, available_timezones
+from zoneinfo import ZoneInfo
 
 DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
@@ -33,11 +33,6 @@ CREATE TABLE IF NOT EXISTS availability (
 def normalize_game_name(name: str) -> str:
     """Lowercase the name and remove all whitespace."""
     return "".join(name.split()).lower()
-
-
-def validate_timezone(tz: str) -> bool:
-    """Return True if tz is a valid IANA timezone name."""
-    return tz in available_timezones()
 
 
 def validate_time(t: str) -> bool:
