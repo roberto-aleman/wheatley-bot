@@ -1,32 +1,8 @@
-from typing import cast
-
 import discord
 from discord import app_commands
+from discord.ext import commands
 
-from commands.helpers import BotClient, get_bot
-
-client: discord.Client
-GUILD: discord.Object
-
-
-def setup(c: discord.Client, guild: discord.Object) -> None:
-    global client, GUILD
-    client = c
-    GUILD = guild
-    _register_commands()
-
-
-async def _autocomplete_user_games(
-    interaction: discord.Interaction, current: str,
-) -> list[app_commands.Choice[str]]:
-    """Suggest from the invoker's own game list."""
-    bot = get_bot(interaction)
-    games = bot.db.list_games(interaction.user.id)
-    lower = current.lower()
-    return [
-        app_commands.Choice(name=g, value=g)
-        for g in games if lower in g.lower()
-    ][:25]
+from commands.helpers import get_bot, autocomplete_user_games
 
 
 async def _autocomplete_all_games(
@@ -72,19 +48,20 @@ class RemoveGameView(discord.ui.View):
         self.add_item(RemoveGameSelect(games))
 
 
-def _register_commands() -> None:
-    tree = cast(BotClient, client).tree
+class GamesCog(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
 
-    @tree.command(name="add-game", description="Add a game to your list.", guild=GUILD)
+    @app_commands.command(name="add-game", description="Add a game to your list.")
     @app_commands.autocomplete(game=_autocomplete_all_games)
-    async def add_game(interaction: discord.Interaction, game: str) -> None:
+    async def add_game(self, interaction: discord.Interaction, game: str) -> None:
         bot = get_bot(interaction)
         bot.db.add_game(interaction.user.id, game)
         await interaction.response.send_message(f'Added "{game}" to your games.', ephemeral=True)
 
-    @tree.command(name="remove-game", description="Remove a game from your list.", guild=GUILD)
-    @app_commands.autocomplete(game=_autocomplete_user_games)
-    async def remove_game(interaction: discord.Interaction, game: str) -> None:
+    @app_commands.command(name="remove-game", description="Remove a game from your list.")
+    @app_commands.autocomplete(game=autocomplete_user_games)
+    async def remove_game(self, interaction: discord.Interaction, game: str) -> None:
         bot = get_bot(interaction)
         removed = bot.db.remove_game(interaction.user.id, game)
         if removed:
@@ -93,8 +70,8 @@ def _register_commands() -> None:
             message = f'"{game}" was not found in your games.'
         await interaction.response.send_message(message, ephemeral=True)
 
-    @tree.command(name="remove-game-menu", description="Remove a game from your list using a dropdown menu.", guild=GUILD)
-    async def remove_game_menu(interaction: discord.Interaction) -> None:
+    @app_commands.command(name="remove-game-menu", description="Remove a game from your list using a dropdown menu.")
+    async def remove_game_menu(self, interaction: discord.Interaction) -> None:
         bot = get_bot(interaction)
         games = bot.db.list_games(interaction.user.id)
         if not games:
@@ -102,8 +79,8 @@ def _register_commands() -> None:
             return
         await interaction.response.send_message("Select a game to remove:", view=RemoveGameView(games), ephemeral=True)
 
-    @tree.command(name="list-games", description="List the games you have saved.", guild=GUILD)
-    async def list_games(interaction: discord.Interaction) -> None:
+    @app_commands.command(name="list-games", description="List the games you have saved.")
+    async def list_games(self, interaction: discord.Interaction) -> None:
         bot = get_bot(interaction)
         games = bot.db.list_games(interaction.user.id)
         if not games:
@@ -112,8 +89,8 @@ def _register_commands() -> None:
         embed = discord.Embed(title="Your Games", description="\n".join(f"• {g}" for g in games), color=0x5865F2)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @tree.command(name="common-games", description="Show games you have in common with another user.", guild=GUILD)
-    async def common_games(interaction: discord.Interaction, other: discord.User) -> None:
+    @app_commands.command(name="common-games", description="Show games you have in common with another user.")
+    async def common_games(self, interaction: discord.Interaction, other: discord.User) -> None:
         bot = get_bot(interaction)
         common = bot.db.get_common_games(interaction.user.id, other.id)
         if not common:
@@ -125,3 +102,7 @@ def _register_commands() -> None:
             color=0x5865F2,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(GamesCog(bot))

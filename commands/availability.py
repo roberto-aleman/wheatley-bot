@@ -1,9 +1,8 @@
-from typing import cast
-
 import discord
 from discord import app_commands
+from discord.ext import commands
 
-from commands.helpers import BotClient, get_bot
+from commands.helpers import get_bot
 from state import DAY_KEYS, validate_time
 
 US_TIMEZONES = [
@@ -15,29 +14,22 @@ US_TIMEZONES = [
     app_commands.Choice(name="Hawaii", value="US/Hawaii"),
 ]
 
-client: discord.Client
-GUILD: discord.Object
+DAY_CHOICES = [app_commands.Choice(name=d, value=d) for d in DAY_KEYS]
 
 
-def setup(c: discord.Client, guild: discord.Object) -> None:
-    global client, GUILD
-    client = c
-    GUILD = guild
-    _register_commands()
+class AvailabilityCog(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
 
-
-def _register_commands() -> None:
-    tree = cast(BotClient, client).tree
-
-    @tree.command(name="set-timezone", description="Set your timezone.", guild=GUILD)
+    @app_commands.command(name="set-timezone", description="Set your timezone.")
     @app_commands.choices(tz=US_TIMEZONES)
-    async def set_timezone(interaction: discord.Interaction, tz: app_commands.Choice[str]) -> None:
+    async def set_timezone(self, interaction: discord.Interaction, tz: app_commands.Choice[str]) -> None:
         bot = get_bot(interaction)
         bot.db.set_timezone(interaction.user.id, tz.value)
         await interaction.response.send_message(f'Set your timezone to {tz.name} ({tz.value}).', ephemeral=True)
 
-    @tree.command(name="my-timezone", description="Show your saved timezone.", guild=GUILD)
-    async def my_timezone(interaction: discord.Interaction) -> None:
+    @app_commands.command(name="my-timezone", description="Show your saved timezone.")
+    async def my_timezone(self, interaction: discord.Interaction) -> None:
         bot = get_bot(interaction)
         tz = bot.db.get_timezone(interaction.user.id)
         if tz:
@@ -46,10 +38,10 @@ def _register_commands() -> None:
             message = "You don't have a timezone saved."
         await interaction.response.send_message(message, ephemeral=True)
 
-    @tree.command(name="set-availability", description="Add a time slot for a weekday.", guild=GUILD)
-    @app_commands.choices(day=[app_commands.Choice(name=d, value=d) for d in DAY_KEYS])
+    @app_commands.command(name="set-availability", description="Add a time slot for a weekday.")
+    @app_commands.choices(day=DAY_CHOICES)
     async def set_availability(
-        interaction: discord.Interaction,
+        self, interaction: discord.Interaction,
         day: app_commands.Choice[str],
         start: str,
         end: str,
@@ -67,10 +59,10 @@ def _register_commands() -> None:
             f"Added {start}-{end} on {day.value}.", ephemeral=True,
         )
 
-    @tree.command(name="clear-availability", description="Clear all time slots for a weekday.", guild=GUILD)
-    @app_commands.choices(day=[app_commands.Choice(name=d, value=d) for d in DAY_KEYS])
+    @app_commands.command(name="clear-availability", description="Clear all time slots for a weekday.")
+    @app_commands.choices(day=DAY_CHOICES)
     async def clear_availability(
-        interaction: discord.Interaction,
+        self, interaction: discord.Interaction,
         day: app_commands.Choice[str],
     ) -> None:
         bot = get_bot(interaction)
@@ -79,8 +71,8 @@ def _register_commands() -> None:
             f"Cleared all availability on {day.value}.", ephemeral=True,
         )
 
-    @tree.command(name="my-availability", description="Show your saved weekly availability.", guild=GUILD)
-    async def my_availability(interaction: discord.Interaction) -> None:
+    @app_commands.command(name="my-availability", description="Show your saved weekly availability.")
+    async def my_availability(self, interaction: discord.Interaction) -> None:
         bot = get_bot(interaction)
         uid = interaction.user.id
         tz = bot.db.get_timezone(uid)
@@ -98,3 +90,7 @@ def _register_commands() -> None:
             embed.add_field(name=day, value=value, inline=True)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(AvailabilityCog(bot))

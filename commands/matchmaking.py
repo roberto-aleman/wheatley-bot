@@ -1,40 +1,19 @@
 from datetime import datetime, timezone
-from typing import cast
 
 import discord
 from discord import app_commands
+from discord.ext import commands
 
-from commands.helpers import BotClient, get_bot
-
-client: discord.Client
-GUILD: discord.Object
+from commands.helpers import get_bot, autocomplete_user_games
 
 
-def setup(c: discord.Client, guild: discord.Object) -> None:
-    global client, GUILD
-    client = c
-    GUILD = guild
-    _register_commands()
+class MatchmakingCog(commands.Cog):
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
 
-
-async def _autocomplete_user_games(
-    interaction: discord.Interaction, current: str,
-) -> list[app_commands.Choice[str]]:
-    bot = get_bot(interaction)
-    games = bot.db.list_games(interaction.user.id)
-    lower = current.lower()
-    return [
-        app_commands.Choice(name=g, value=g)
-        for g in games if lower in g.lower()
-    ][:25]
-
-
-def _register_commands() -> None:
-    tree = cast(BotClient, client).tree
-
-    @tree.command(name="ready-to-play", description="Find available players who share your games.", guild=GUILD)
-    @app_commands.autocomplete(game=_autocomplete_user_games)
-    async def ready_to_play(interaction: discord.Interaction, game: str | None = None) -> None:
+    @app_commands.command(name="ready-to-play", description="Find available players who share your games.")
+    @app_commands.autocomplete(game=autocomplete_user_games)
+    async def ready_to_play(self, interaction: discord.Interaction, game: str | None = None) -> None:
         bot = get_bot(interaction)
         now_utc = datetime.now(timezone.utc)
 
@@ -59,3 +38,7 @@ def _register_commands() -> None:
             color=0x57F287,
         )
         await interaction.response.send_message(embed=embed)
+
+
+async def setup(bot: commands.Bot) -> None:
+    await bot.add_cog(MatchmakingCog(bot))

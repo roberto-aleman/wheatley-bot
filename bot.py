@@ -1,7 +1,7 @@
 import os
 
 import discord
-from discord import app_commands
+from discord.ext import commands
 from dotenv import load_dotenv
 
 from state import Database
@@ -19,14 +19,21 @@ if GUILD_ID is None:
 
 GUILD = discord.Object(id=int(GUILD_ID))
 
+EXTENSIONS = [
+    "commands.games",
+    "commands.availability",
+    "commands.matchmaking",
+]
 
-class WheatleyClient(discord.Client):
-    def __init__(self, *, intents: discord.Intents) -> None:
-        super().__init__(intents=intents)
+
+class WheatleyBot(commands.Bot):
+    def __init__(self) -> None:
+        super().__init__(command_prefix="!", intents=discord.Intents.default())
         self.db = Database()
-        self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self) -> None:
+        for ext in EXTENSIONS:
+            await self.load_extension(ext)
         self.tree.copy_global_to(guild=GUILD)
         await self.tree.sync(guild=GUILD)
         print(f"Synced commands to guild {GUILD_ID}")
@@ -40,16 +47,10 @@ class WheatleyClient(discord.Client):
         print(f"Number of users: {self.db.user_count()}")
         print("------")
 
+    async def close(self) -> None:
+        self.db.close()
+        await super().close()
 
-intents = discord.Intents.default()
-client = WheatleyClient(intents=intents)
-
-# Register all command modules
-from commands import games, availability, matchmaking  # noqa: E402
-
-games.setup(client, GUILD)
-availability.setup(client, GUILD)
-matchmaking.setup(client, GUILD)
 
 if __name__ == "__main__":
-    client.run(TOKEN)
+    WheatleyBot().run(TOKEN)
