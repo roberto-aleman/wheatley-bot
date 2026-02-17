@@ -46,37 +46,38 @@ def _register_commands() -> None:
             message = "You don't have a timezone saved."
         await interaction.response.send_message(message, ephemeral=True)
 
-    @tree.command(name="set-availability", description="Set or clear your availability for a single weekday.", guild=GUILD)
+    @tree.command(name="set-availability", description="Add a time slot for a weekday.", guild=GUILD)
     @app_commands.choices(day=[app_commands.Choice(name=d, value=d) for d in DAY_KEYS])
     async def set_availability(
         interaction: discord.Interaction,
         day: app_commands.Choice[str],
-        start: str | None = None,
-        end: str | None = None,
+        start: str,
+        end: str,
     ) -> None:
         bot = get_bot(interaction)
-        day_key = day.value
 
-        if (start and not end) or (end and not start):
+        if not validate_time(start) or not validate_time(end):
             await interaction.response.send_message(
-                "You must provide both start and end, or neither to clear.", ephemeral=True,
+                "Times must be in HH:MM format (e.g. 18:00).", ephemeral=True,
             )
             return
 
-        if start and end:
-            if not validate_time(start) or not validate_time(end):
-                await interaction.response.send_message(
-                    "Times must be in HH:MM format (e.g. 18:00).", ephemeral=True,
-                )
-                return
+        bot.db.add_day_availability(interaction.user.id, day.value, start, end)
+        await interaction.response.send_message(
+            f"Added {start}-{end} on {day.value}.", ephemeral=True,
+        )
 
-        bot.db.set_day_availability(interaction.user.id, day_key, start, end)
-
-        if not start or not end:
-            message = f"Cleared your availability on {day_key}."
-        else:
-            message = f"Set your availability on {day_key} from {start} to {end}."
-        await interaction.response.send_message(message, ephemeral=True)
+    @tree.command(name="clear-availability", description="Clear all time slots for a weekday.", guild=GUILD)
+    @app_commands.choices(day=[app_commands.Choice(name=d, value=d) for d in DAY_KEYS])
+    async def clear_availability(
+        interaction: discord.Interaction,
+        day: app_commands.Choice[str],
+    ) -> None:
+        bot = get_bot(interaction)
+        bot.db.clear_day_availability(interaction.user.id, day.value)
+        await interaction.response.send_message(
+            f"Cleared all availability on {day.value}.", ephemeral=True,
+        )
 
     @tree.command(name="my-availability", description="Show your saved weekly availability.", guild=GUILD)
     async def my_availability(interaction: discord.Interaction) -> None:

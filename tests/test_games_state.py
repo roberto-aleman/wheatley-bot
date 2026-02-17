@@ -76,7 +76,7 @@ def test_set_and_get_timezone(tmp_path: Path) -> None:
 
 def test_set_day_availability_creates_slot(tmp_path: Path) -> None:
     db = _make_db(tmp_path)
-    db.set_day_availability(123, "mon", "18:00", "22:00")
+    db.add_day_availability(123, "mon", "18:00", "22:00")
 
     availability = db.get_availability(123)
     for day in DAY_KEYS:
@@ -88,19 +88,22 @@ def test_set_day_availability_creates_slot(tmp_path: Path) -> None:
             assert availability[day] == []
 
 
-def test_set_day_availability_overwrites(tmp_path: Path) -> None:
+def test_set_day_availability_multiple_slots(tmp_path: Path) -> None:
     db = _make_db(tmp_path)
-    db.set_day_availability(123, "fri", "18:00", "22:00")
-    db.set_day_availability(123, "fri", "19:30", "23:00")
+    db.add_day_availability(123, "fri", "12:00", "14:00")
+    db.add_day_availability(123, "fri", "20:00", "23:00")
 
     availability = db.get_availability(123)
-    assert availability["fri"] == [{"start": "19:30", "end": "23:00"}]
+    assert availability["fri"] == [
+        {"start": "12:00", "end": "14:00"},
+        {"start": "20:00", "end": "23:00"},
+    ]
 
 
 def test_set_day_availability_clears(tmp_path: Path) -> None:
     db = _make_db(tmp_path)
-    db.set_day_availability(123, "wed", "18:00", "22:00")
-    db.set_day_availability(123, "wed", None, None)
+    db.add_day_availability(123, "wed", "18:00", "22:00")
+    db.clear_day_availability(123, "wed")
 
     availability = db.get_availability(123)
     assert availability["wed"] == []
@@ -133,7 +136,7 @@ def test_format_availability_missing_user(tmp_path: Path) -> None:
 def test_format_availability_with_timezone_and_day(tmp_path: Path) -> None:
     db = _make_db(tmp_path)
     db.set_timezone(123, "America/Los_Angeles")
-    db.set_day_availability(123, "fri", "18:00", "22:00")
+    db.add_day_availability(123, "fri", "18:00", "22:00")
 
     msg = db.format_availability(123)
     lines = msg.splitlines()
@@ -151,7 +154,7 @@ def test_format_availability_with_timezone_and_day(tmp_path: Path) -> None:
 
 def test_format_availability_partial(tmp_path: Path) -> None:
     db = _make_db(tmp_path)
-    db.set_day_availability(123, "mon", "10:00", "12:00")
+    db.add_day_availability(123, "mon", "10:00", "12:00")
 
     msg = db.format_availability(123)
     lines = msg.splitlines()
@@ -164,3 +167,14 @@ def test_format_availability_partial(tmp_path: Path) -> None:
     for day in DAY_KEYS:
         if day != "mon":
             assert day_to_text[day] == "none"
+
+
+def test_format_availability_multiple_slots(tmp_path: Path) -> None:
+    db = _make_db(tmp_path)
+    db.add_day_availability(123, "sat", "10:00", "12:00")
+    db.add_day_availability(123, "sat", "20:00", "23:00")
+
+    msg = db.format_availability(123)
+    lines = msg.splitlines()
+    day_to_text = {line.split(":")[0]: line.split(": ")[1] for line in lines[1:]}
+    assert day_to_text["sat"] == "10:00-12:00, 20:00-23:00"

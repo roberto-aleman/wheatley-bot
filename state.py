@@ -20,11 +20,11 @@ CREATE TABLE IF NOT EXISTS games (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 CREATE TABLE IF NOT EXISTS availability (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT NOT NULL,
     day TEXT NOT NULL,
     start_time TEXT NOT NULL,
     end_time TEXT NOT NULL,
-    PRIMARY KEY (user_id, day),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 """
@@ -54,7 +54,16 @@ class Database:
         self.conn = sqlite3.connect(path)
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
+        self._migrate()
         self.conn.executescript(_SCHEMA)
+
+    def _migrate(self) -> None:
+        """Drop old availability table if it has the single-slot schema."""
+        row = self.conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='availability'",
+        ).fetchone()
+        if row and "PRIMARY KEY (user_id, day)" in row[0]:
+            self.conn.execute("DROP TABLE availability")
 
     def close(self) -> None:
         self.conn.close()
@@ -124,32 +133,32 @@ class Database:
 
     # --- Availability ---
 
-    def set_day_availability(
-        self, user_id: int, day: str, start: str | None, end: str | None,
+    def add_day_availability(
+        self, user_id: int, day: str, start: str, end: str,
     ) -> None:
         self._ensure_user(user_id)
-        if not start or not end:
-            self.conn.execute(
-                "DELETE FROM availability WHERE user_id = ? AND day = ?",
-                (str(user_id), day),
-            )
-        else:
-            self.conn.execute(
-                "INSERT INTO availability (user_id, day, start_time, end_time) VALUES (?, ?, ?, ?) "
-                "ON CONFLICT (user_id, day) DO UPDATE SET start_time = excluded.start_time, end_time = excluded.end_time",
-                (str(user_id), day, start, end),
-            )
+        self.conn.execute(
+            "INSERT INTO availability (user_id, day, start_time, end_time) VALUES (?, ?, ?, ?)",
+            (str(user_id), day, start, end),
+        )
+        self.conn.commit()
+
+    def clear_day_availability(self, user_id: int, day: str) -> None:
+        self.conn.execute(
+            "DELETE FROM availability WHERE user_id = ? AND day = ?",
+            (str(user_id), day),
+        )
         self.conn.commit()
 
     def get_availability(self, user_id: int) -> dict[str, list[dict[str, str]]]:
         result = _empty_availability()
         rows = self.conn.execute(
-            "SELECT day, start_time, end_time FROM availability WHERE user_id = ?",
+            "SELECT day, start_time, end_time FROM availability WHERE user_id = ? ORDER BY start_time",
             (str(user_id),),
         ).fetchall()
         for day, start, end in rows:
             if day in result:
-                result[day] = [{"start": start, "end": end}]
+                result[day].append({"start": start, "end": end})
         return result
 
     def format_availability(self, user_id: int) -> str:
@@ -163,8 +172,8 @@ class Database:
             if not slots:
                 lines.append(f"{day}: none")
             else:
-                slot = slots[0]
-                lines.append(f"{day}: {slot['start']}-{slot['end']}")
+                slot_strs = [f"{s['start']}-{s['end']}" for s in slots]
+                lines.append(f"{day}: {', '.join(slot_strs)}")
 
         return "\n".join(lines)
 

@@ -21,7 +21,8 @@ A Discord bot for coordinating gaming sessions on a private server. Users save t
 | `/common-games <user>` | Show games you share with another user |
 | `/set-timezone <tz>` | Set your timezone (US timezone dropdown) |
 | `/my-timezone` | Show your saved timezone |
-| `/set-availability <day> [start] [end]` | Set or clear availability for a weekday (HH:MM format) |
+| `/set-availability <day> <start> <end>` | Add a time slot for a weekday (HH:MM format, supports past midnight) |
+| `/clear-availability <day>` | Clear all time slots for a weekday |
 | `/my-availability` | Show your weekly availability summary |
 | `/ready-to-play [game]` | Find available players who share your games, optionally filtered by game |
 
