@@ -74,7 +74,5 @@ wheatley-bot/
 ## Running Tests
 
 ```bash
-DISCORD_TOKEN=test GUILD_ID=1 python -m pytest tests/ -v
+python -m pytest tests/ -v
 ```
-
-The dummy env vars are needed because `bot.py` validates them at import time. Tests use temporary databases and don't connect to Discord.
