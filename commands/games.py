@@ -3,6 +3,7 @@ from typing import cast
 import discord
 from discord import app_commands
 
+from commands.helpers import BotClient, get_bot
 from state import Database
 
 client: discord.Client
@@ -27,12 +28,10 @@ class RemoveGameSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        from bot import WheatleyClient
-
-        wheatley = cast(WheatleyClient, interaction.client)
+        bot = get_bot(interaction)
         selected_game = self.values[0]
 
-        removed = wheatley.db.remove_game(interaction.user.id, selected_game)
+        removed = bot.db.remove_game(interaction.user.id, selected_game)
         if removed:
             message = f'Removed "{selected_game}" from your games.'
         else:
@@ -49,20 +48,18 @@ class RemoveGameView(discord.ui.View):
 
 
 def _register_commands() -> None:
-    from bot import WheatleyClient
-
-    tree = cast(WheatleyClient, client).tree
+    tree = cast(BotClient, client).tree
 
     @tree.command(name="add-game", description="Add a game to your list.", guild=GUILD)
     async def add_game(interaction: discord.Interaction, game: str) -> None:
-        wheatley = cast(WheatleyClient, interaction.client)
-        wheatley.db.add_game(interaction.user.id, game)
+        bot = get_bot(interaction)
+        bot.db.add_game(interaction.user.id, game)
         await interaction.response.send_message(f'Added "{game}" to your games.', ephemeral=True)
 
     @tree.command(name="remove-game", description="Remove a game from your list.", guild=GUILD)
     async def remove_game(interaction: discord.Interaction, game: str) -> None:
-        wheatley = cast(WheatleyClient, interaction.client)
-        removed = wheatley.db.remove_game(interaction.user.id, game)
+        bot = get_bot(interaction)
+        removed = bot.db.remove_game(interaction.user.id, game)
         if removed:
             message = f'Removed "{game}" from your games.'
         else:
@@ -71,8 +68,8 @@ def _register_commands() -> None:
 
     @tree.command(name="remove-game-menu", description="Remove a game from your list using a dropdown menu.", guild=GUILD)
     async def remove_game_menu(interaction: discord.Interaction) -> None:
-        wheatley = cast(WheatleyClient, interaction.client)
-        games = wheatley.db.list_games(interaction.user.id)
+        bot = get_bot(interaction)
+        games = bot.db.list_games(interaction.user.id)
         if not games:
             await interaction.response.send_message("You don't have any games saved.", ephemeral=True)
             return
@@ -80,8 +77,8 @@ def _register_commands() -> None:
 
     @tree.command(name="list-games", description="List the games you have saved.", guild=GUILD)
     async def list_games(interaction: discord.Interaction) -> None:
-        wheatley = cast(WheatleyClient, interaction.client)
-        games = wheatley.db.list_games(interaction.user.id)
+        bot = get_bot(interaction)
+        games = bot.db.list_games(interaction.user.id)
         if games:
             message = f"Your games: {', '.join(games)}"
         else:
@@ -90,8 +87,8 @@ def _register_commands() -> None:
 
     @tree.command(name="common-games", description="Show games you have in common with another user.", guild=GUILD)
     async def common_games(interaction: discord.Interaction, other: discord.User) -> None:
-        wheatley = cast(WheatleyClient, interaction.client)
-        common = wheatley.db.get_common_games(interaction.user.id, other.id)
+        bot = get_bot(interaction)
+        common = bot.db.get_common_games(interaction.user.id, other.id)
         if not common:
             message = f"You and {other.mention} don't have any games in common."
         else:

@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
-from typing import cast
 
 import discord
 from discord import app_commands
+
+from commands.helpers import get_bot
 
 client: discord.Client
 GUILD: discord.Object
@@ -16,16 +17,17 @@ def setup(c: discord.Client, guild: discord.Object) -> None:
 
 
 def _register_commands() -> None:
-    from bot import WheatleyClient
+    from commands.helpers import BotClient
+    from typing import cast
 
-    tree = cast(WheatleyClient, client).tree
+    tree = cast(BotClient, client).tree
 
     @tree.command(name="ready-to-play", description="Find available players who share your games.", guild=GUILD)
     async def ready_to_play(interaction: discord.Interaction, game: str | None = None) -> None:
-        wheatley = cast(WheatleyClient, interaction.client)
+        bot = get_bot(interaction)
         now_utc = datetime.now(timezone.utc)
 
-        matches = wheatley.db.find_ready_players(interaction.user.id, now_utc, game_filter=game)
+        matches = bot.db.find_ready_players(interaction.user.id, now_utc, game_filter=game)
 
         if not matches:
             if game:
