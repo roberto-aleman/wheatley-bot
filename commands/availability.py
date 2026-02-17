@@ -82,5 +82,19 @@ def _register_commands() -> None:
     @tree.command(name="my-availability", description="Show your saved weekly availability.", guild=GUILD)
     async def my_availability(interaction: discord.Interaction) -> None:
         bot = get_bot(interaction)
-        summary = bot.db.format_availability(interaction.user.id)
-        await interaction.response.send_message(summary, ephemeral=True)
+        uid = interaction.user.id
+        tz = bot.db.get_timezone(uid)
+        availability = bot.db.get_availability(uid)
+
+        embed = discord.Embed(title="Your Availability", color=0x5865F2)
+        embed.add_field(name="Timezone", value=tz or "not set", inline=False)
+
+        for day in DAY_KEYS:
+            slots = availability[day]
+            if slots:
+                value = ", ".join(f"{s['start']}-{s['end']}" for s in slots)
+            else:
+                value = "none"
+            embed.add_field(name=day, value=value, inline=True)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)

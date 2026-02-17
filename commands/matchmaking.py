@@ -50,10 +50,12 @@ def _register_commands() -> None:
 
         lines: list[str] = []
         for user_id, common in matches:
-            mention = f"<@{user_id}>"
             games_str = ", ".join(common)
-            lines.append(f"{mention} — {games_str}")
+            lines.append(f"<@{user_id}> — {games_str}")
 
-        header = "Players available now:"
-        message = header + "\n" + "\n".join(lines)
-        await interaction.response.send_message(message)
+        embed = discord.Embed(
+            title="Players Available Now",
+            description="\n".join(lines),
+            color=0x57F287,
+        )
+        await interaction.response.send_message(embed=embed)

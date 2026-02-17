@@ -186,22 +186,6 @@ class Database:
                 result[day].append({"start": start, "end": end})
         return result
 
-    def format_availability(self, user_id: int) -> str:
-        tz = self.get_timezone(user_id)
-        lines: list[str] = []
-        lines.append(f"timezone: {tz}" if tz else "timezone: not set")
-
-        availability = self.get_availability(user_id)
-        for day in DAY_KEYS:
-            slots = availability[day]
-            if not slots:
-                lines.append(f"{day}: none")
-            else:
-                slot_strs = [f"{s['start']}-{s['end']}" for s in slots]
-                lines.append(f"{day}: {', '.join(slot_strs)}")
-
-        return "\n".join(lines)
-
     # --- Matchmaking ---
 
     def is_user_available_now(self, user_id: int, now_utc: datetime) -> bool:

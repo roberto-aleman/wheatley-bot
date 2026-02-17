@@ -106,18 +106,22 @@ def _register_commands() -> None:
     async def list_games(interaction: discord.Interaction) -> None:
         bot = get_bot(interaction)
         games = bot.db.list_games(interaction.user.id)
-        if games:
-            message = f"Your games: {', '.join(games)}"
-        else:
-            message = "You don't have any games saved."
-        await interaction.response.send_message(message, ephemeral=True)
+        if not games:
+            await interaction.response.send_message("You don't have any games saved.", ephemeral=True)
+            return
+        embed = discord.Embed(title="Your Games", description="\n".join(f"• {g}" for g in games), color=0x5865F2)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @tree.command(name="common-games", description="Show games you have in common with another user.", guild=GUILD)
     async def common_games(interaction: discord.Interaction, other: discord.User) -> None:
         bot = get_bot(interaction)
         common = bot.db.get_common_games(interaction.user.id, other.id)
         if not common:
-            message = f"You and {other.mention} don't have any games in common."
-        else:
-            message = f"You and {other.mention} have these common games: {', '.join(common)}."
-        await interaction.response.send_message(message, ephemeral=True)
+            await interaction.response.send_message(f"You and {other.mention} don't have any games in common.", ephemeral=True)
+            return
+        embed = discord.Embed(
+            title=f"Games in Common with {other.display_name}",
+            description="\n".join(f"• {g}" for g in common),
+            color=0x5865F2,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
