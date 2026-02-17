@@ -21,17 +21,19 @@ class AvailabilityCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
+    @property
+    def db(self):
+        return self.bot.db
+
     @app_commands.command(name="set-timezone", description="Set your timezone.")
     @app_commands.choices(tz=US_TIMEZONES)
     async def set_timezone(self, interaction: discord.Interaction, tz: app_commands.Choice[str]) -> None:
-        bot = get_bot(interaction)
-        bot.db.set_timezone(interaction.user.id, tz.value)
+        self.db.set_timezone(interaction.user.id, tz.value)
         await interaction.response.send_message(f'Set your timezone to {tz.name} ({tz.value}).', ephemeral=True)
 
     @app_commands.command(name="my-timezone", description="Show your saved timezone.")
     async def my_timezone(self, interaction: discord.Interaction) -> None:
-        bot = get_bot(interaction)
-        tz = bot.db.get_timezone(interaction.user.id)
+        tz = self.db.get_timezone(interaction.user.id)
         if tz:
             message = f"Your timezone: {tz}"
         else:
@@ -46,15 +48,13 @@ class AvailabilityCog(commands.Cog):
         start: str,
         end: str,
     ) -> None:
-        bot = get_bot(interaction)
-
         if not validate_time(start) or not validate_time(end):
             await interaction.response.send_message(
                 "Times must be in HH:MM format (e.g. 18:00).", ephemeral=True,
             )
             return
 
-        bot.db.add_day_availability(interaction.user.id, day.value, start, end)
+        self.db.add_day_availability(interaction.user.id, day.value, start, end)
         await interaction.response.send_message(
             f"Added {start}-{end} on {day.value}.", ephemeral=True,
         )
@@ -65,18 +65,16 @@ class AvailabilityCog(commands.Cog):
         self, interaction: discord.Interaction,
         day: app_commands.Choice[str],
     ) -> None:
-        bot = get_bot(interaction)
-        bot.db.clear_day_availability(interaction.user.id, day.value)
+        self.db.clear_day_availability(interaction.user.id, day.value)
         await interaction.response.send_message(
             f"Cleared all availability on {day.value}.", ephemeral=True,
         )
 
     @app_commands.command(name="my-availability", description="Show your saved weekly availability.")
     async def my_availability(self, interaction: discord.Interaction) -> None:
-        bot = get_bot(interaction)
         uid = interaction.user.id
-        tz = bot.db.get_timezone(uid)
-        availability = bot.db.get_availability(uid)
+        tz = self.db.get_timezone(uid)
+        availability = self.db.get_availability(uid)
 
         embed = discord.Embed(title="Your Availability", color=0x5865F2)
         embed.add_field(name="Timezone", value=tz or "not set", inline=False)

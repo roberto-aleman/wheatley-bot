@@ -4,20 +4,23 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import get_bot, autocomplete_user_games
+from commands.helpers import autocomplete_user_games
 
 
 class MatchmakingCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
+    @property
+    def db(self):
+        return self.bot.db
+
     @app_commands.command(name="ready-to-play", description="Find available players who share your games.")
     @app_commands.autocomplete(game=autocomplete_user_games)
     async def ready_to_play(self, interaction: discord.Interaction, game: str | None = None) -> None:
-        bot = get_bot(interaction)
         now_utc = datetime.now(timezone.utc)
 
-        matches = bot.db.find_ready_players(interaction.user.id, now_utc, game_filter=game)
+        matches = self.db.find_ready_players(interaction.user.id, now_utc, game_filter=game)
 
         if not matches:
             if game:

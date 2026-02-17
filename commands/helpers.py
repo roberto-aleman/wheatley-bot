@@ -26,3 +26,16 @@ async def autocomplete_user_games(
         app_commands.Choice(name=g, value=g)
         for g in games if lower in g.lower()
     ][:25]
+
+
+async def autocomplete_all_games(
+    interaction: discord.Interaction, current: str,
+) -> list[app_commands.Choice[str]]:
+    """Suggest from all known games across all users."""
+    bot = get_bot(interaction)
+    games = bot.db.all_game_names()
+    lower = current.lower()
+    return [
+        app_commands.Choice(name=g, value=g)
+        for g in games if lower in g.lower()
+    ][:25]

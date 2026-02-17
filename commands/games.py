@@ -2,20 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import get_bot, autocomplete_user_games
-
-
-async def _autocomplete_all_games(
-    interaction: discord.Interaction, current: str,
-) -> list[app_commands.Choice[str]]:
-    """Suggest from all known games across all users."""
-    bot = get_bot(interaction)
-    games = bot.db.all_game_names()
-    lower = current.lower()
-    return [
-        app_commands.Choice(name=g, value=g)
-        for g in games if lower in g.lower()
-    ][:25]
+from commands.helpers import get_bot, autocomplete_all_games, autocomplete_user_games
 
 
 class RemoveGameSelect(discord.ui.Select):
@@ -52,18 +39,20 @@ class GamesCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
 
+    @property
+    def db(self):
+        return self.bot.db
+
     @app_commands.command(name="add-game", description="Add a game to your list.")
-    @app_commands.autocomplete(game=_autocomplete_all_games)
+    @app_commands.autocomplete(game=autocomplete_all_games)
     async def add_game(self, interaction: discord.Interaction, game: str) -> None:
-        bot = get_bot(interaction)
-        bot.db.add_game(interaction.user.id, game)
+        self.db.add_game(interaction.user.id, game)
         await interaction.response.send_message(f'Added "{game}" to your games.', ephemeral=True)
 
     @app_commands.command(name="remove-game", description="Remove a game from your list.")
     @app_commands.autocomplete(game=autocomplete_user_games)
     async def remove_game(self, interaction: discord.Interaction, game: str) -> None:
-        bot = get_bot(interaction)
-        removed = bot.db.remove_game(interaction.user.id, game)
+        removed = self.db.remove_game(interaction.user.id, game)
         if removed:
             message = f'Removed "{game}" from your games.'
         else:
@@ -72,8 +61,7 @@ class GamesCog(commands.Cog):
 
     @app_commands.command(name="remove-game-menu", description="Remove a game from your list using a dropdown menu.")
     async def remove_game_menu(self, interaction: discord.Interaction) -> None:
-        bot = get_bot(interaction)
-        games = bot.db.list_games(interaction.user.id)
+        games = self.db.list_games(interaction.user.id)
         if not games:
             await interaction.response.send_message("You don't have any games saved.", ephemeral=True)
             return
@@ -81,8 +69,7 @@ class GamesCog(commands.Cog):
 
     @app_commands.command(name="list-games", description="List the games you have saved.")
     async def list_games(self, interaction: discord.Interaction) -> None:
-        bot = get_bot(interaction)
-        games = bot.db.list_games(interaction.user.id)
+        games = self.db.list_games(interaction.user.id)
         if not games:
             await interaction.response.send_message("You don't have any games saved.", ephemeral=True)
             return
@@ -91,8 +78,7 @@ class GamesCog(commands.Cog):
 
     @app_commands.command(name="common-games", description="Show games you have in common with another user.")
     async def common_games(self, interaction: discord.Interaction, other: discord.User) -> None:
-        bot = get_bot(interaction)
-        common = bot.db.get_common_games(interaction.user.id, other.id)
+        common = self.db.get_common_games(interaction.user.id, other.id)
         if not common:
             await interaction.response.send_message(f"You and {other.mention} don't have any games in common.", ephemeral=True)
             return
