@@ -6,7 +6,8 @@ from commands.helpers import get_bot, autocomplete_all_games, autocomplete_user_
 
 
 class RemoveGameSelect(discord.ui.Select):
-    def __init__(self, games: list[str]) -> None:
+    def __init__(self, games: list[str], owner_id: int) -> None:
+        self.owner_id = owner_id
         options = [discord.SelectOption(label=game, value=game) for game in games[:25]]
         super().__init__(
             placeholder="Select a game to remove...",
@@ -16,10 +17,14 @@ class RemoveGameSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This menu isn't for you.", ephemeral=True)
+            return
+
         bot = get_bot(interaction)
         selected_game = self.values[0]
 
-        removed = bot.db.remove_game(interaction.user.id, selected_game)
+        removed = bot.db.remove_game(self.owner_id, selected_game)
         if removed:
             message = f'Removed "{selected_game}" from your games.'
         else:
@@ -30,9 +35,9 @@ class RemoveGameSelect(discord.ui.Select):
 
 
 class RemoveGameView(discord.ui.View):
-    def __init__(self, games: list[str]) -> None:
+    def __init__(self, games: list[str], owner_id: int) -> None:
         super().__init__(timeout=60)
-        self.add_item(RemoveGameSelect(games))
+        self.add_item(RemoveGameSelect(games, owner_id))
 
 
 class GamesCog(commands.Cog):
@@ -65,7 +70,7 @@ class GamesCog(commands.Cog):
         if not games:
             await interaction.response.send_message("You don't have any games saved.", ephemeral=True)
             return
-        await interaction.response.send_message("Select a game to remove:", view=RemoveGameView(games), ephemeral=True)
+        await interaction.response.send_message("Select a game to remove:", view=RemoveGameView(games, interaction.user.id), ephemeral=True)
 
     @app_commands.command(name="list-games", description="List the games you have saved.")
     async def list_games(self, interaction: discord.Interaction) -> None:
