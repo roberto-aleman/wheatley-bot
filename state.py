@@ -186,13 +186,34 @@ class Database:
             return False
 
         local_now = now_utc.astimezone(tz)
-        day_key = DAY_KEYS[local_now.weekday()]
-        local_time_str = local_now.strftime("%H:%M")
+        today = DAY_KEYS[local_now.weekday()]
+        yesterday = DAY_KEYS[(local_now.weekday() - 1) % 7]
+        now_str = local_now.strftime("%H:%M")
+        uid = str(user_id)
 
+        # Normal window: start < end (e.g. 18:00–22:00)
         row = self.conn.execute(
             "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
-            "AND start_time <= ? AND end_time > ?",
-            (str(user_id), day_key, local_time_str, local_time_str),
+            "AND start_time < end_time AND start_time <= ? AND end_time > ?",
+            (uid, today, now_str, now_str),
+        ).fetchone()
+        if row:
+            return True
+
+        # Today's window spans midnight (start >= end), currently past start
+        row = self.conn.execute(
+            "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
+            "AND start_time >= end_time AND start_time <= ?",
+            (uid, today, now_str),
+        ).fetchone()
+        if row:
+            return True
+
+        # Yesterday's window spans midnight, we're in the early-morning portion
+        row = self.conn.execute(
+            "SELECT 1 FROM availability WHERE user_id = ? AND day = ? "
+            "AND start_time >= end_time AND end_time > ?",
+            (uid, yesterday, now_str),
         ).fetchone()
         return row is not None
 
