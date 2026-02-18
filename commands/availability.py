@@ -2,8 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import get_bot, EMBED_COLOR
-from state import DAY_KEYS, validate_time
+from commands.helpers import EMBED_COLOR
+from state import DAY_KEYS, Database, validate_time
 
 US_TIMEZONES = [
     app_commands.Choice(name="Eastern", value="US/Eastern"),
@@ -22,8 +22,8 @@ class AvailabilityCog(commands.Cog):
         self.bot = bot
 
     @property
-    def db(self):
-        return self.bot.db
+    def db(self) -> Database:
+        return self.bot.db  # type: ignore[attr-defined]
 
     @app_commands.command(name="set-timezone", description="Set your timezone.")
     @app_commands.choices(tz=US_TIMEZONES)

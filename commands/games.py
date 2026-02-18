@@ -2,7 +2,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import get_bot, autocomplete_all_games, autocomplete_user_games, EMBED_COLOR
+from commands.helpers import autocomplete_all_games, autocomplete_user_games, get_bot, EMBED_COLOR
+from state import Database
 
 
 class RemoveGameSelect(discord.ui.Select):
@@ -45,8 +46,8 @@ class GamesCog(commands.Cog):
         self.bot = bot
 
     @property
-    def db(self):
-        return self.bot.db
+    def db(self) -> Database:
+        return self.bot.db  # type: ignore[attr-defined]
 
     @app_commands.command(name="add-game", description="Add a game to your list.")
     @app_commands.autocomplete(game=autocomplete_all_games)

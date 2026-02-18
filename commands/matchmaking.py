@@ -5,6 +5,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from commands.helpers import autocomplete_user_games, SUCCESS_COLOR
+from state import Database
 
 
 class MatchmakingCog(commands.Cog):
@@ -12,8 +13,8 @@ class MatchmakingCog(commands.Cog):
         self.bot = bot
 
     @property
-    def db(self):
-        return self.bot.db
+    def db(self) -> Database:
+        return self.bot.db  # type: ignore[attr-defined]
 
     @app_commands.command(name="ready-to-play", description="Find available players who share your games.")
     @app_commands.autocomplete(game=autocomplete_user_games)
