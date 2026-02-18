@@ -196,6 +196,8 @@ class Database:
     def add_day_availability(
         self, user_id: int, day: str, start: str, end: str,
     ) -> None:
+        if day not in DAY_KEYS:
+            raise ValueError(f"Invalid day: {day!r}")
         self._ensure_user(user_id)
         uid = _uid(user_id)
 
@@ -226,6 +228,8 @@ class Database:
         self.conn.commit()
 
     def clear_day_availability(self, user_id: int, day: str) -> None:
+        if day not in DAY_KEYS:
+            raise ValueError(f"Invalid day: {day!r}")
         self.conn.execute(
             "DELETE FROM availability WHERE user_id = ? AND day = ?",
             (_uid(user_id), day),
