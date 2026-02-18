@@ -54,6 +54,12 @@ class AvailabilityCog(commands.Cog):
             )
             return
 
+        if start == end:
+            await interaction.response.send_message(
+                "Start and end times must be different.", ephemeral=True,
+            )
+            return
+
         self.db.add_day_availability(interaction.user.id, day.value, start, end)
         await interaction.response.send_message(
             f"Added {start}-{end} on {day.value}.", ephemeral=True,

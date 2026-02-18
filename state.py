@@ -65,7 +65,7 @@ def _uid(user_id: int) -> str:
 
 
 def _slots_overlap(s1_start: str, s1_end: str, s2_start: str, s2_end: str) -> bool:
-    """Check if two time slots overlap or are adjacent, handling overnight slots."""
+    """Check if two time slots overlap or are adjacent (shared boundary), handling overnight slots."""
     # For overnight slots (start >= end), they always span to midnight and from midnight,
     # so treat them as two ranges: [start, 24:00) and [00:00, end)
     def ranges(s: str, e: str) -> list[tuple[str, str]]:
@@ -198,6 +198,8 @@ class Database:
     ) -> None:
         if day not in DAY_KEYS:
             raise ValueError(f"Invalid day: {day!r}")
+        if start == end:
+            raise ValueError("Start and end times must differ")
         self._ensure_user(user_id)
         uid = _uid(user_id)
 
