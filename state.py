@@ -38,6 +38,10 @@ _MIGRATIONS: list[str] = [
         FOREIGN KEY (user_id) REFERENCES users(user_id)
     );
     """,
+    # v3: index for availability lookups by user and day
+    """
+    CREATE INDEX IF NOT EXISTS idx_availability_user_day ON availability(user_id, day);
+    """,
 ]
 
 
