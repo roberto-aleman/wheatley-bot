@@ -40,6 +40,13 @@ class RemoveGameView(discord.ui.View):
         super().__init__(timeout=60)
         self.add_item(RemoveGameSelect(games, owner_id))
 
+    async def on_timeout(self) -> None:
+        for item in self.children:
+            if isinstance(item, discord.ui.Select):
+                item.disabled = True
+        if self.message:
+            await self.message.edit(content="This menu has expired.", view=self)
+
 
 class GamesCog(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
@@ -73,7 +80,9 @@ class GamesCog(commands.Cog):
         if not games:
             await interaction.response.send_message("You don't have any games saved.", ephemeral=True)
             return
-        await interaction.response.send_message("Select a game to remove:", view=RemoveGameView(games, interaction.user.id), ephemeral=True)
+        view = RemoveGameView(games, interaction.user.id)
+        await interaction.response.send_message("Select a game to remove:", view=view, ephemeral=True)
+        view.message = await interaction.original_response()
 
     @app_commands.command(name="list-games", description="List the games you have saved.")
     async def list_games(self, interaction: discord.Interaction) -> None:
