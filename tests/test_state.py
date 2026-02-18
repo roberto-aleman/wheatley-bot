@@ -1,22 +1,25 @@
+from collections.abc import Generator
 from pathlib import Path
 
-from state import DAY_KEYS, Database
+import pytest
+
+from state import DAY_KEYS, Database, normalize_game_name
 
 
-def _make_db(tmp_path: Path) -> Database:
-    return Database(tmp_path / "test.db")
+@pytest.fixture
+def db(tmp_path: Path) -> Generator[Database, None, None]:
+    d = Database(tmp_path / "test.db")
+    yield d
+    d.close()
 
 
 def test_normalize_game_name_whitespace_and_case() -> None:
-    from state import normalize_game_name
-
     raw = " HelL DiverS  2  "
     normalized = normalize_game_name(raw)
     assert normalized == "helldivers2"
 
 
-def test_add_game_merges_duplicates(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_add_game_merges_duplicates(db: Database) -> None:
     db.add_game(123, "Helldivers 2")
     db.add_game(123, "  helL DiverS  2   ")
 
@@ -25,8 +28,7 @@ def test_add_game_merges_duplicates(tmp_path: Path) -> None:
     assert games[0] == "  helL DiverS  2   "
 
 
-def test_remove_game_removes_matching_game(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_remove_game_removes_matching_game(db: Database) -> None:
     db.add_game(123, "Helldivers 2")
     db.add_game(123, "Balatro")
 
@@ -37,13 +39,11 @@ def test_remove_game_removes_matching_game(tmp_path: Path) -> None:
     assert games == ["Balatro"]
 
 
-def test_remove_game_returns_false_for_missing(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_remove_game_returns_false_for_missing(db: Database) -> None:
     assert db.remove_game(123, "Nope") is False
 
 
-def test_list_games_returns_user_games(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_list_games_returns_user_games(db: Database) -> None:
     db.add_game(123, "Helldivers 2")
     db.add_game(123, "Balatro")
 
@@ -51,8 +51,7 @@ def test_list_games_returns_user_games(tmp_path: Path) -> None:
     assert db.list_games(999) == []
 
 
-def test_get_common_games(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_get_common_games(db: Database) -> None:
     db.add_game(123, "Helldivers 2")
     db.add_game(123, "Balatro")
     db.add_game(999, "  helL DiverS  2   ")
@@ -61,16 +60,14 @@ def test_get_common_games(tmp_path: Path) -> None:
     assert games == ["Helldivers 2"]
 
 
-def test_set_and_get_timezone(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_set_and_get_timezone(db: Database) -> None:
     db.set_timezone(123, "America/Los_Angeles")
 
     assert db.get_timezone(123) == "America/Los_Angeles"
     assert db.get_timezone(999) is None
 
 
-def test_set_day_availability_creates_slot(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_set_day_availability_creates_slot(db: Database) -> None:
     db.add_day_availability(123, "mon", "18:00", "22:00")
 
     availability = db.get_availability(123)
@@ -83,8 +80,7 @@ def test_set_day_availability_creates_slot(tmp_path: Path) -> None:
             assert availability[day] == []
 
 
-def test_set_day_availability_multiple_slots(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_set_day_availability_multiple_slots(db: Database) -> None:
     db.add_day_availability(123, "fri", "12:00", "14:00")
     db.add_day_availability(123, "fri", "20:00", "23:00")
 
@@ -95,8 +91,7 @@ def test_set_day_availability_multiple_slots(tmp_path: Path) -> None:
     ]
 
 
-def test_set_day_availability_clears(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_set_day_availability_clears(db: Database) -> None:
     db.add_day_availability(123, "wed", "18:00", "22:00")
     db.clear_day_availability(123, "wed")
 
@@ -104,12 +99,9 @@ def test_set_day_availability_clears(tmp_path: Path) -> None:
     assert availability["wed"] == []
 
 
-def test_get_availability_empty_for_missing_user(tmp_path: Path) -> None:
-    db = _make_db(tmp_path)
+def test_get_availability_empty_for_missing_user(db: Database) -> None:
     availability = db.get_availability(123)
 
     for day in DAY_KEYS:
         assert day in availability
         assert availability[day] == []
-
-
