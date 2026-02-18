@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import get_bot
+from commands.helpers import get_bot, EMBED_COLOR
 from state import DAY_KEYS, validate_time
 
 US_TIMEZONES = [
@@ -76,7 +76,7 @@ class AvailabilityCog(commands.Cog):
         tz = self.db.get_timezone(uid)
         availability = self.db.get_availability(uid)
 
-        embed = discord.Embed(title="Your Availability", color=0x5865F2)
+        embed = discord.Embed(title="Your Availability", color=EMBED_COLOR)
         embed.add_field(name="Timezone", value=tz or "not set", inline=False)
 
         for day in DAY_KEYS:

@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import get_bot, autocomplete_all_games, autocomplete_user_games
+from commands.helpers import get_bot, autocomplete_all_games, autocomplete_user_games, EMBED_COLOR
 
 
 class RemoveGameSelect(discord.ui.Select):
@@ -78,7 +78,7 @@ class GamesCog(commands.Cog):
         if not games:
             await interaction.response.send_message("You don't have any games saved.", ephemeral=True)
             return
-        embed = discord.Embed(title="Your Games", description="\n".join(f"• {g}" for g in games), color=0x5865F2)
+        embed = discord.Embed(title="Your Games", description="\n".join(f"• {g}" for g in games), color=EMBED_COLOR)
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(name="common-games", description="Show games you have in common with another user.")
@@ -90,7 +90,7 @@ class GamesCog(commands.Cog):
         embed = discord.Embed(
             title=f"Games in Common with {other.display_name}",
             description="\n".join(f"• {g}" for g in common),
-            color=0x5865F2,
+            color=EMBED_COLOR,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 

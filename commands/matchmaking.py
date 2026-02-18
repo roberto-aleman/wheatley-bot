@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import autocomplete_user_games
+from commands.helpers import autocomplete_user_games, SUCCESS_COLOR
 
 
 class MatchmakingCog(commands.Cog):
@@ -38,7 +38,7 @@ class MatchmakingCog(commands.Cog):
         embed = discord.Embed(
             title="Players Available Now",
             description="\n".join(lines),
-            color=0x57F287,
+            color=SUCCESS_COLOR,
         )
         await interaction.response.send_message(embed=embed)
 

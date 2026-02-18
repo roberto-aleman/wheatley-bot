@@ -5,6 +5,9 @@ from discord import app_commands
 
 from state import Database
 
+EMBED_COLOR = 0x5865F2
+SUCCESS_COLOR = 0x57F287
+
 
 class BotClient(Protocol):
     db: Database

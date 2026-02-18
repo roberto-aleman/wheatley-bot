@@ -1,3 +1,4 @@
+from itertools import groupby
 import logging
 import sqlite3
 from datetime import datetime
@@ -323,7 +324,6 @@ class Database:
         norm_filter = normalize_game_name(game_filter) if game_filter else None
 
         # Group by user
-        from itertools import groupby
         results: list[tuple[int, list[str]]] = []
         for uid_str, group in groupby(rows, key=lambda r: r[0]):
             games = []
