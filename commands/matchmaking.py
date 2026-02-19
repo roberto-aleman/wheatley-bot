@@ -45,5 +45,25 @@ class MatchmakingCog(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
 
+    @app_commands.command(name="next-available", description="Show when a user is next available.")
+    @app_commands.describe(user="The user to check (defaults to yourself)")
+    async def next_available(self, interaction: discord.Interaction, user: discord.User | None = None) -> None:
+        target = user or interaction.user
+        now_utc = datetime.now(timezone.utc)
+        result = self.db.next_available(target.id, now_utc)
+
+        if not result:
+            await interaction.response.send_message(
+                f"{target.mention} has no upcoming availability set.", ephemeral=True,
+            )
+            return
+
+        day, start, end = result
+        await interaction.response.send_message(
+            f"{target.mention} is next available **{day} {start}–{end}** (their local time).",
+            ephemeral=True,
+        )
+
+
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(MatchmakingCog(bot))

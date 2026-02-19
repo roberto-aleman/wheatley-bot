@@ -1,7 +1,7 @@
 from itertools import groupby
 import logging
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -247,6 +247,41 @@ class Database:
             if day in result:
                 result[day].append({"start": start, "end": end})
         return result
+
+    def next_available(self, user_id: int, now_utc: datetime) -> tuple[str, str, str] | None:
+        """Return the next (day, start, end) slot for a user in their local time, or None."""
+        tz_name = self.get_timezone(user_id)
+        if not tz_name:
+            return None
+        try:
+            tz = ZoneInfo(tz_name)
+        except (KeyError, ValueError):
+            return None
+
+        local_now = now_utc.astimezone(tz)
+        now_day_idx = local_now.weekday()
+        now_str = local_now.strftime("%H:%M")
+
+        rows = self.conn.execute(
+            "SELECT day, start_time, end_time FROM availability WHERE user_id = ? ORDER BY start_time",
+            (_uid(user_id),),
+        ).fetchall()
+        if not rows:
+            return None
+
+        # Check up to 7 days ahead (today through same day next week)
+        for offset in range(7):
+            day_idx = (now_day_idx + offset) % 7
+            day = DAY_KEYS[day_idx]
+            for _, start, end in [(d, s, e) for d, s, e in rows if d == day]:
+                if offset == 0:
+                    # Today: slot must not have ended yet
+                    if now_str < end:
+                        return (day, start, end)
+                else:
+                    return (day, start, end)
+
+        return None
 
     # --- Matchmaking ---
 
