@@ -99,13 +99,16 @@ class AvailabilityCog(commands.Cog):
         embed = discord.Embed(title="Your Availability", color=EMBED_COLOR)
         embed.add_field(name="Timezone", value=tz or "not set", inline=False)
 
+        has_any = False
         for day in DAY_KEYS:
             slots = availability[day]
             if slots:
+                has_any = True
                 value = ", ".join(f"{fmt_time(s['start'])}–{fmt_time(s['end'])}" for s in slots)
-            else:
-                value = "none"
-            embed.add_field(name=fmt_day(day), value=value, inline=True)
+                embed.add_field(name=fmt_day(day), value=value, inline=True)
+
+        if not has_any:
+            embed.add_field(name="Schedule", value="No availability set.", inline=False)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
