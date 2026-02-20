@@ -12,15 +12,10 @@ load_dotenv()
 log = logging.getLogger("hourglass")
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = os.getenv("GUILD_ID")
+TEST_GUILD_ID = os.getenv("TEST_GUILD_ID")
 
 if TOKEN is None:
     raise RuntimeError("DISCORD_TOKEN is not set in .env")
-
-if GUILD_ID is None:
-    raise RuntimeError("GUILD_ID is not set in .env")
-
-GUILD = discord.Object(id=int(GUILD_ID))
 
 EXTENSIONS = [
     "commands.games",
@@ -42,9 +37,13 @@ class HourglassBot(commands.Bot):
     async def setup_hook(self) -> None:
         for ext in EXTENSIONS:
             await self.load_extension(ext)
-        self.tree.copy_global_to(guild=GUILD)
-        await self.tree.sync(guild=GUILD)
-        log.info("Synced commands to guild %s", GUILD_ID)
+        if TEST_GUILD_ID:
+            guild = discord.Object(id=int(TEST_GUILD_ID))
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+            log.info("Synced commands to test guild %s", TEST_GUILD_ID)
+        await self.tree.sync()
+        log.info("Synced global commands")
 
     async def on_ready(self) -> None:
         user = self.user

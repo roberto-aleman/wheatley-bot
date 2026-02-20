@@ -34,13 +34,13 @@ A Discord bot for coordinating gaming sessions on a private server. Users save t
 
 1. Create a bot at the [Discord Developer Portal](https://discord.com/developers/applications) and copy the token.
 
-2. Get your server's Guild ID (enable Developer Mode in Discord settings, then right-click the server name → Copy Server ID).
+2. *(Optional)* For instant command updates during development, get your test server's Guild ID (enable Developer Mode in Discord settings, then right-click the server name → Copy Server ID).
 
 3. Create a `.env` file in the project root:
 
    ```
    DISCORD_TOKEN=your_token_here
-   GUILD_ID=your_guild_id_here
+   TEST_GUILD_ID=your_guild_id_here  # optional, for instant command sync during dev
    ```
 
 4. Install dependencies:
