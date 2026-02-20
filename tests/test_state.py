@@ -1,5 +1,7 @@
 from collections.abc import Generator
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -105,3 +107,47 @@ def test_get_availability_empty_for_missing_user(db: Database) -> None:
     for day in DAY_KEYS:
         assert day in availability
         assert availability[day] == []
+
+
+def test_get_users_for_game(db: Database) -> None:
+    db.add_game(123, "Helldivers 2")
+    db.add_game(456, "  helL DiverS  2   ")
+    db.add_game(789, "Balatro")
+
+    users = db.get_users_for_game("Helldivers 2")
+    assert set(users) == {123, 456}
+
+
+def test_get_users_for_game_no_matches(db: Database) -> None:
+    assert db.get_users_for_game("Nope") == []
+
+
+def test_next_available_returns_todays_slot(db: Database) -> None:
+    db.set_timezone(123, "US/Eastern")
+    db.add_day_availability(123, "thu", "18:00", "22:00")
+
+    # Thursday 20:00 Eastern = slot still active
+    now_utc = datetime(2026, 2, 20, 1, 0, tzinfo=ZoneInfo("UTC"))  # 01:00 UTC Fri = 20:00 ET Thu
+    result = db.next_available(123, now_utc)
+    assert result == ("thu", "18:00", "22:00")
+
+
+def test_next_available_skips_ended_slot(db: Database) -> None:
+    db.set_timezone(123, "US/Eastern")
+    db.add_day_availability(123, "thu", "10:00", "12:00")
+    db.add_day_availability(123, "fri", "18:00", "22:00")
+
+    # Thursday 15:00 Eastern — thu slot already ended
+    now_utc = datetime(2026, 2, 19, 20, 0, tzinfo=ZoneInfo("UTC"))
+    result = db.next_available(123, now_utc)
+    assert result == ("fri", "18:00", "22:00")
+
+
+def test_next_available_no_timezone(db: Database) -> None:
+    db.add_day_availability(123, "mon", "18:00", "22:00")
+    assert db.next_available(123, datetime.now(ZoneInfo("UTC"))) is None
+
+
+def test_next_available_no_slots(db: Database) -> None:
+    db.set_timezone(123, "US/Eastern")
+    assert db.next_available(123, datetime.now(ZoneInfo("UTC"))) is None

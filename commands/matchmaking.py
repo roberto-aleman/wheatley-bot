@@ -44,7 +44,6 @@ class MatchmakingCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-
     @app_commands.command(name="next-available", description="Show when a user is next available.")
     @app_commands.describe(user="The user to check (defaults to yourself)")
     async def next_available(self, interaction: discord.Interaction, user: discord.User | None = None) -> None:

@@ -107,7 +107,6 @@ class GamesCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-
     @app_commands.command(name="who-plays", description="List all users who have a specific game.")
     @app_commands.describe(game="Name of the game")
     @app_commands.autocomplete(game=autocomplete_all_games)
