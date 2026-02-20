@@ -8,6 +8,28 @@ from state import Database
 EMBED_COLOR = 0x5865F2
 SUCCESS_COLOR = 0x57F287
 
+DAY_DISPLAY = {
+    "mon": "Monday", "tue": "Tuesday", "wed": "Wednesday", "thu": "Thursday",
+    "fri": "Friday", "sat": "Saturday", "sun": "Sunday",
+}
+
+
+def fmt_time(t: str) -> str:
+    """Convert HH:MM to 12-hour format (e.g. '18:00' -> '6:00 PM')."""
+    h, m = int(t[:2]), t[3:]
+    if h == 0 or h == 24:
+        return f"12:{m} AM"
+    if h < 12:
+        return f"{h}:{m} AM"
+    if h == 12:
+        return f"12:{m} PM"
+    return f"{h - 12}:{m} PM"
+
+
+def fmt_day(day: str) -> str:
+    """Convert day key to full name (e.g. 'mon' -> 'Monday')."""
+    return DAY_DISPLAY.get(day, day)
+
 
 def setup_hints(db: Database, user_id: int) -> list[str]:
     """Return a list of setup steps the user still needs to complete."""

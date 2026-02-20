@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import EMBED_COLOR
+from commands.helpers import EMBED_COLOR, fmt_day, fmt_time
 from state import DAY_KEYS, Database, validate_time
 
 _ALL_TIMEZONES = sorted(available_timezones())
@@ -75,7 +75,7 @@ class AvailabilityCog(commands.Cog):
 
         self.db.add_day_availability(interaction.user.id, day.value, start, end)
         await interaction.response.send_message(
-            f"Added {start}-{end} on {day.value}.", ephemeral=True,
+            f"Added {fmt_time(start)}–{fmt_time(end)} on {fmt_day(day.value)}.", ephemeral=True,
         )
 
     @app_commands.command(name="clear-availability", description="Clear all time slots for a weekday.")
@@ -87,7 +87,7 @@ class AvailabilityCog(commands.Cog):
     ) -> None:
         self.db.clear_day_availability(interaction.user.id, day.value)
         await interaction.response.send_message(
-            f"Cleared all availability on {day.value}.", ephemeral=True,
+            f"Cleared all availability on {fmt_day(day.value)}.", ephemeral=True,
         )
 
     @app_commands.command(name="my-availability", description="Show your saved weekly availability.")
@@ -102,10 +102,10 @@ class AvailabilityCog(commands.Cog):
         for day in DAY_KEYS:
             slots = availability[day]
             if slots:
-                value = ", ".join(f"{s['start']}-{s['end']}" for s in slots)
+                value = ", ".join(f"{fmt_time(s['start'])}–{fmt_time(s['end'])}" for s in slots)
             else:
                 value = "none"
-            embed.add_field(name=day, value=value, inline=True)
+            embed.add_field(name=fmt_day(day), value=value, inline=True)
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 

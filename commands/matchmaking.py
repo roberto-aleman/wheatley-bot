@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from commands.helpers import autocomplete_user_games, setup_hints, SUCCESS_COLOR
+from commands.helpers import autocomplete_user_games, fmt_day, fmt_time, setup_hints, SUCCESS_COLOR
 from state import Database
 
 
@@ -68,7 +68,7 @@ class MatchmakingCog(commands.Cog):
 
         day, start, end = result
         await interaction.response.send_message(
-            f"{target.mention} is next available **{day} {start}–{end}** (their local time).",
+            f"{target.mention} is next available **{fmt_day(day)} {fmt_time(start)}–{fmt_time(end)}** (their local time).",
             ephemeral=True,
         )
 
