@@ -1,4 +1,4 @@
-# Wheatley Bot
+# Hourglass Bot
 
 A Discord bot for coordinating gaming sessions on a private server. Users save their game lists and weekly availability, then use `/ready-to-play` to find who's online and shares their games.
 
@@ -6,25 +6,29 @@ A Discord bot for coordinating gaming sessions on a private server. Users save t
 
 - **Game lists** — add, remove, and browse games with autocomplete suggestions
 - **Weekly availability** — set time windows per day of the week (supports late-night sessions past midnight)
-- **Timezone support** — availability is stored in local time and converted for matching
+- **Timezone support** — all IANA timezones supported; availability is stored in local time and converted for matching
 - **Matchmaking** — `/ready-to-play` finds users who are available *right now* and share your games
+- **Setup hints** — new users get guided through setup when they first try matchmaking commands
 - **SQLite storage** — persistent data stored in `data/state.db`
 
 ## Commands
 
 | Command | Description |
 |---|---|
+| `/hourglass` | Show all available commands |
 | `/add-game <game>` | Add a game to your list (autocompletes from all known games) |
 | `/remove-game <game>` | Remove a game by name (autocompletes from your games) |
 | `/remove-game-menu` | Remove a game using a dropdown menu |
 | `/list-games` | Show your saved games |
 | `/common-games <user>` | Show games you share with another user |
-| `/set-timezone <tz>` | Set your timezone (US timezone dropdown) |
+| `/who-plays <game>` | List all users who have a specific game |
+| `/set-timezone <tz>` | Set your timezone (autocompletes from all IANA timezones) |
 | `/my-timezone` | Show your saved timezone |
 | `/set-availability <day> <start> <end>` | Add a time slot for a weekday (HH:MM format, supports past midnight) |
 | `/clear-availability <day>` | Clear all time slots for a weekday |
 | `/my-availability` | Show your weekly availability summary |
 | `/ready-to-play [game]` | Find available players who share your games, optionally filtered by game |
+| `/next-available [user]` | Show when a user is next available (defaults to yourself) |
 
 ## Setup
 
@@ -60,12 +64,13 @@ wheatley-bot/
 ├── bot.py                      # Bot setup and entrypoint (commands.Bot)
 ├── state.py                    # Database class (SQLite), versioned migrations, and pure logic
 ├── commands/
-│   ├── helpers.py              # BotClient protocol and shared autocomplete helpers
+│   ├── helpers.py              # BotClient protocol, shared autocomplete helpers, and setup hints
 │   ├── games.py                # Game list commands (Cog)
 │   ├── availability.py         # Timezone and availability commands (Cog)
-│   └── matchmaking.py          # /ready-to-play command (Cog)
+│   ├── matchmaking.py          # /ready-to-play and /next-available commands (Cog)
+│   └── help.py                 # /hourglass help command (Cog)
 ├── tests/
-│   └── test_games_state.py     # Unit tests for state logic
+│   └── test_state.py           # Unit tests for state logic
 ├── data/                       # Runtime data (gitignored)
 │   └── state.db
 ├── requirements.txt
