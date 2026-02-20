@@ -26,6 +26,7 @@ EXTENSIONS = [
     "commands.games",
     "commands.availability",
     "commands.matchmaking",
+    "commands.help",
 ]
 
 
