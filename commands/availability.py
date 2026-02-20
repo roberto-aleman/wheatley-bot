@@ -73,9 +73,10 @@ class AvailabilityCog(commands.Cog):
             )
             return
 
-        self.db.add_day_availability(interaction.user.id, day.value, start, end)
+        slots = self.db.add_day_availability(interaction.user.id, day.value, start, end)
+        schedule = ", ".join(f"{fmt_time(s['start'])}–{fmt_time(s['end'])}" for s in slots)
         await interaction.response.send_message(
-            f"Added {fmt_time(start)}–{fmt_time(end)} on {fmt_day(day.value)}.", ephemeral=True,
+            f"Updated {fmt_day(day.value)}: {schedule}", ephemeral=True,
         )
 
     @app_commands.command(name="clear-availability", description="Clear all time slots for a weekday.")

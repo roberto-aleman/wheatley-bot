@@ -210,7 +210,8 @@ class Database:
 
     def add_day_availability(
         self, user_id: int, day: str, start: str, end: str,
-    ) -> None:
+    ) -> list[dict[str, str]]:
+        """Add a slot and return the resulting slots for that day."""
         if day not in DAY_KEYS:
             raise ValueError(f"Invalid day: {day!r}")
         if start == end:
@@ -227,6 +228,12 @@ class Database:
             self._add_normal_slot(uid, next_day, "00:00", end)
 
         self.conn.commit()
+
+        rows = self.conn.execute(
+            "SELECT start_time, end_time FROM availability WHERE user_id = ? AND day = ? ORDER BY start_time",
+            (uid, day),
+        ).fetchall()
+        return [{"start": s, "end": e} for s, e in rows]
 
     def clear_day_availability(self, user_id: int, day: str) -> None:
         if day not in DAY_KEYS:
