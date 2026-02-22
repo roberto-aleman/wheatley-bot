@@ -43,7 +43,9 @@ class HelpCog(commands.Cog):
             name="Matchmaking",
             value=(
                 "`/ready-to-play` — Find who's available now and shares your games\n"
-                "`/next-available` — See when a user is next available"
+                "`/next-available` — See when a user is next available\n"
+                "`/snooze` — Temporarily hide from matchmaking\n"
+                "`/unsnooze` — Cancel your snooze early"
             ),
             inline=False,
         )

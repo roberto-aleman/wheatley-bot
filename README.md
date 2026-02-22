@@ -22,13 +22,15 @@ A Discord bot for coordinating gaming sessions on a private server. Users save t
 | `/list-games` | Show your saved games |
 | `/common-games <user>` | Show games you share with another user |
 | `/who-plays <game>` | List all users who have a specific game |
-| `/set-timezone <tz>` | Set your timezone (autocompletes from all IANA timezones) |
+| `/set-timezone <timezone>` | Set your timezone (autocompletes from abbreviations and IANA timezones) |
 | `/my-timezone` | Show your saved timezone |
-| `/set-availability <day> <start> <end>` | Add a time slot for a weekday (HH:MM format, supports past midnight) |
+| `/set-availability <day> <start> <end>` | Add a time slot for a weekday (autocomplete with 15-min intervals) |
 | `/clear-availability <day>` | Clear all time slots for a weekday |
 | `/my-availability` | Show your weekly availability summary |
 | `/ready-to-play [game]` | Find available players who share your games, optionally filtered by game |
 | `/next-available [user]` | Show when a user is next available (defaults to yourself) |
+| `/snooze <until>` | Temporarily hide from matchmaking until a time today |
+| `/unsnooze` | Cancel your snooze and show as available again |
 
 ## Setup
 
