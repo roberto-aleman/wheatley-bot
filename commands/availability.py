@@ -12,6 +12,24 @@ _ALL_TIMEZONES_SET = set(_ALL_TIMEZONES)
 
 DAY_CHOICES = [app_commands.Choice(name=fmt_day(d), value=d) for d in DAY_KEYS]
 
+# Pre-built 15-minute interval time choices: display "6:00 PM", store "18:00"
+_TIME_CHOICES = []
+for _h in range(24):
+    for _m in (0, 15, 30, 45):
+        _val = f"{_h:02d}:{_m:02d}"
+        _TIME_CHOICES.append((_val, fmt_time(_val)))
+
+
+async def autocomplete_time(
+    interaction: discord.Interaction, current: str,
+) -> list[app_commands.Choice[str]]:
+    lower = current.lower().strip()
+    return [
+        app_commands.Choice(name=display, value=val)
+        for val, display in _TIME_CHOICES
+        if lower in display.lower() or lower in val
+    ][:25]
+
 
 async def autocomplete_timezone(
     interaction: discord.Interaction, current: str,
@@ -53,8 +71,9 @@ class AvailabilityCog(commands.Cog):
         await interaction.response.send_message(message, ephemeral=True)
 
     @app_commands.command(name="set-availability", description="Add a time slot for a weekday.")
-    @app_commands.describe(day="Day of the week", start="Start time (HH:MM)", end="End time (HH:MM, can be past midnight)")
+    @app_commands.describe(day="Day of the week", start="Start time", end="End time (can be past midnight)")
     @app_commands.choices(day=DAY_CHOICES)
+    @app_commands.autocomplete(start=autocomplete_time, end=autocomplete_time)
     async def set_availability(
         self, interaction: discord.Interaction,
         day: app_commands.Choice[str],
@@ -63,7 +82,7 @@ class AvailabilityCog(commands.Cog):
     ) -> None:
         if not validate_time(start) or not validate_time(end):
             await interaction.response.send_message(
-                "Times must be in HH:MM format (e.g. 18:00).", ephemeral=True,
+                "Please pick a time from the suggestions.", ephemeral=True,
             )
             return
 
