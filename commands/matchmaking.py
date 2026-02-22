@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
+from commands.availability import autocomplete_time
 from commands.helpers import autocomplete_user_games, fmt_day, fmt_time, setup_hints, SUCCESS_COLOR
 from state import Database
 
@@ -71,6 +73,40 @@ class MatchmakingCog(commands.Cog):
             f"{target.mention} is next available **{fmt_day(day)} {fmt_time(start)}–{fmt_time(end)}** (their local time).",
             ephemeral=True,
         )
+
+    @app_commands.command(name="snooze", description="Temporarily hide from matchmaking until a time today.")
+    @app_commands.describe(until="Time to snooze until")
+    @app_commands.autocomplete(until=autocomplete_time)
+    async def snooze(self, interaction: discord.Interaction, until: str) -> None:
+        tz_name = self.db.get_timezone(interaction.user.id)
+        if not tz_name:
+            await interaction.response.send_message(
+                "Set your timezone first with `/set-timezone`.", ephemeral=True,
+            )
+            return
+
+        tz = ZoneInfo(tz_name)
+        local_now = datetime.now(timezone.utc).astimezone(tz)
+        h, m = int(until[:2]), int(until[3:])
+        snooze_local = local_now.replace(hour=h, minute=m, second=0, microsecond=0)
+
+        if snooze_local <= local_now:
+            await interaction.response.send_message(
+                "That time has already passed today.", ephemeral=True,
+            )
+            return
+
+        snooze_utc = snooze_local.astimezone(timezone.utc)
+        self.db.set_snooze(interaction.user.id, snooze_utc)
+        await interaction.response.send_message(
+            f"Snoozed until {fmt_time(until)}. Use `/unsnooze` to come back early.",
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="unsnooze", description="Cancel your snooze and show as available again.")
+    async def unsnooze(self, interaction: discord.Interaction) -> None:
+        self.db.clear_snooze(interaction.user.id)
+        await interaction.response.send_message("Snooze cleared! You're available again.", ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

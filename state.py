@@ -42,6 +42,10 @@ _MIGRATIONS: list[str] = [
     """
     CREATE INDEX IF NOT EXISTS idx_availability_user_day ON availability(user_id, day);
     """,
+    # v4: snooze support — temporary "do not disturb" until a UTC timestamp
+    """
+    ALTER TABLE users ADD COLUMN snooze_until TEXT;
+    """,
 ]
 
 
@@ -112,6 +116,37 @@ class Database:
             "INSERT OR IGNORE INTO users (user_id) VALUES (?)",
             (_uid(user_id),),
         )
+
+    # --- Snooze ---
+
+    def set_snooze(self, user_id: int, until_utc: datetime) -> None:
+        self._ensure_user(user_id)
+        self.conn.execute(
+            "UPDATE users SET snooze_until = ? WHERE user_id = ?",
+            (until_utc.strftime("%Y-%m-%dT%H:%M"), _uid(user_id)),
+        )
+        self.conn.commit()
+
+    def clear_snooze(self, user_id: int) -> None:
+        self.conn.execute(
+            "UPDATE users SET snooze_until = NULL WHERE user_id = ?",
+            (_uid(user_id),),
+        )
+        self.conn.commit()
+
+    def is_snoozed(self, user_id: int, now_utc: datetime) -> bool:
+        row = self.conn.execute(
+            "SELECT snooze_until FROM users WHERE user_id = ?", (_uid(user_id),),
+        ).fetchone()
+        if not row or not row[0]:
+            return False
+        return now_utc.strftime("%Y-%m-%dT%H:%M") < row[0]
+
+    def get_snooze_until(self, user_id: int) -> str | None:
+        row = self.conn.execute(
+            "SELECT snooze_until FROM users WHERE user_id = ?", (_uid(user_id),),
+        ).fetchone()
+        return row[0] if row else None
 
     # --- Games ---
 
@@ -293,11 +328,14 @@ class Database:
 
     def _available_user_ids(self, now_utc: datetime) -> set[int]:
         """Return user IDs that are available right now."""
+        now_utc_str = now_utc.strftime("%Y-%m-%dT%H:%M")
         rows = self.conn.execute(
             "SELECT u.user_id, u.timezone, a.day, a.start_time, a.end_time "
             "FROM users u "
             "JOIN availability a ON a.user_id = u.user_id "
-            "WHERE u.timezone IS NOT NULL",
+            "WHERE u.timezone IS NOT NULL "
+            "AND (u.snooze_until IS NULL OR u.snooze_until <= ?)",
+            (now_utc_str,),
         ).fetchall()
 
         available: set[int] = set()
