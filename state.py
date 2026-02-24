@@ -306,6 +306,15 @@ class Database:
         now_day_idx = local_now.weekday()
         now_str = local_now.strftime("%H:%M")
 
+        # Determine snooze end in local time (only matters for today)
+        snooze_local_str: str | None = None
+        snooze_raw = self.get_snooze_until(user_id)
+        if snooze_raw and now_utc.strftime("%Y-%m-%dT%H:%M") < snooze_raw:
+            snooze_utc = datetime.strptime(snooze_raw, "%Y-%m-%dT%H:%M").replace(tzinfo=now_utc.tzinfo)
+            snooze_local = snooze_utc.astimezone(tz)
+            if snooze_local.date() == local_now.date():
+                snooze_local_str = snooze_local.strftime("%H:%M")
+
         rows = self.conn.execute(
             "SELECT day, start_time, end_time FROM availability WHERE user_id = ? ORDER BY start_time",
             (_uid(user_id),),
@@ -322,8 +331,14 @@ class Database:
                     continue
                 if offset == 0 and now_str >= end:
                     continue
-                is_now = offset == 0 and start <= now_str < end
-                return (day, start, end, is_now)
+                effective_start = start
+                # Adjust for snooze on today's slots
+                if offset == 0 and snooze_local_str and snooze_local_str > start:
+                    if snooze_local_str >= end:
+                        continue  # snooze covers entire slot
+                    effective_start = snooze_local_str
+                is_now = offset == 0 and effective_start <= now_str < end
+                return (day, effective_start, end, is_now)
 
         return None
 

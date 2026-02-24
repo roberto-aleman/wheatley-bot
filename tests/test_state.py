@@ -163,6 +163,27 @@ def test_next_available_no_slots(db: Database) -> None:
     assert db.next_available(123, datetime.now(ZoneInfo("UTC"))) is None
 
 
+def test_next_available_adjusts_for_partial_snooze(db: Database) -> None:
+    db.set_timezone(123, "UTC")
+    db.add_day_availability(123, "thu", "18:00", "22:00")
+
+    now_utc = datetime(2026, 2, 19, 17, 0, tzinfo=ZoneInfo("UTC"))  # Thu 17:00 — before slot
+    db.set_snooze(123, datetime(2026, 2, 19, 20, 0, tzinfo=ZoneInfo("UTC")))  # snoozed until 20:00
+    result = db.next_available(123, now_utc)
+    assert result == ("thu", "20:00", "22:00", False)
+
+
+def test_next_available_skips_fully_snoozed_slot(db: Database) -> None:
+    db.set_timezone(123, "UTC")
+    db.add_day_availability(123, "thu", "18:00", "20:00")
+    db.add_day_availability(123, "fri", "10:00", "14:00")
+
+    now_utc = datetime(2026, 2, 19, 17, 0, tzinfo=ZoneInfo("UTC"))  # Thu 17:00
+    db.set_snooze(123, datetime(2026, 2, 19, 21, 0, tzinfo=ZoneInfo("UTC")))  # snoozed until 21:00
+    result = db.next_available(123, now_utc)
+    assert result == ("fri", "10:00", "14:00", False)
+
+
 def test_validate_time_valid() -> None:
     from state import validate_time
     assert validate_time("00:00") is True
