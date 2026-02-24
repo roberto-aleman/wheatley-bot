@@ -120,7 +120,7 @@ class GamesCog(commands.Cog):
             description="\n".join(f"• <@{uid}>" for uid in user_ids),
             color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

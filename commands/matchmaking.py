@@ -7,7 +7,7 @@ from discord.ext import commands
 
 from commands.availability import autocomplete_time
 from commands.helpers import autocomplete_user_games, fmt_day, fmt_time, setup_hints, SUCCESS_COLOR
-from state import Database
+from state import Database, validate_time
 
 
 class MatchmakingCog(commands.Cog):
@@ -98,6 +98,12 @@ class MatchmakingCog(commands.Cog):
         if not tz_name:
             await interaction.response.send_message(
                 "Set your timezone first with `/set-timezone`.", ephemeral=True,
+            )
+            return
+
+        if not validate_time(until):
+            await interaction.response.send_message(
+                "Please pick a time from the suggestions.", ephemeral=True,
             )
             return
 
