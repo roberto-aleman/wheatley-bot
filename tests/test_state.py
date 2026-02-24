@@ -275,3 +275,11 @@ def test_all_game_names(db: Database) -> None:
 
     names = db.all_game_names()
     assert names == ["Balatro", "Helldivers 2"]
+
+
+def test_all_game_names_deduplicates_by_normalized(db: Database) -> None:
+    db.add_game(1, "Helldivers 2")
+    db.add_game(2, "helldivers 2")
+
+    names = db.all_game_names()
+    assert len(names) == 1

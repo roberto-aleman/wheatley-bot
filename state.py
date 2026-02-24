@@ -403,8 +403,8 @@ class Database:
         return row[0] if row else 0
 
     def all_game_names(self) -> list[str]:
-        """Return distinct game names across all users, ordered alphabetically."""
+        """Return one game name per normalized key, ordered alphabetically."""
         rows = self.conn.execute(
-            "SELECT DISTINCT game_name FROM games ORDER BY game_name",
+            "SELECT game_name FROM games GROUP BY normalized ORDER BY game_name",
         ).fetchall()
         return [r[0] for r in rows]
