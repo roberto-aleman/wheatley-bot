@@ -122,14 +122,24 @@ def test_get_users_for_game_no_matches(db: Database) -> None:
     assert db.get_users_for_game("Nope") == []
 
 
-def test_next_available_returns_todays_slot(db: Database) -> None:
+def test_next_available_returns_active_slot_with_is_now(db: Database) -> None:
     db.set_timezone(123, "US/Eastern")
     db.add_day_availability(123, "thu", "18:00", "22:00")
 
     # Thursday 20:00 Eastern = slot still active
     now_utc = datetime(2026, 2, 20, 1, 0, tzinfo=ZoneInfo("UTC"))  # 01:00 UTC Fri = 20:00 ET Thu
     result = db.next_available(123, now_utc)
-    assert result == ("thu", "18:00", "22:00")
+    assert result == ("thu", "18:00", "22:00", True)
+
+
+def test_next_available_returns_future_slot_with_is_now_false(db: Database) -> None:
+    db.set_timezone(123, "US/Eastern")
+    db.add_day_availability(123, "thu", "18:00", "22:00")
+
+    # Thursday 15:00 Eastern = slot hasn't started yet
+    now_utc = datetime(2026, 2, 19, 20, 0, tzinfo=ZoneInfo("UTC"))  # 20:00 UTC Thu = 15:00 ET Thu
+    result = db.next_available(123, now_utc)
+    assert result == ("thu", "18:00", "22:00", False)
 
 
 def test_next_available_skips_ended_slot(db: Database) -> None:
@@ -140,7 +150,7 @@ def test_next_available_skips_ended_slot(db: Database) -> None:
     # Thursday 15:00 Eastern — thu slot already ended
     now_utc = datetime(2026, 2, 19, 20, 0, tzinfo=ZoneInfo("UTC"))
     result = db.next_available(123, now_utc)
-    assert result == ("fri", "18:00", "22:00")
+    assert result == ("fri", "18:00", "22:00", False)
 
 
 def test_next_available_no_timezone(db: Database) -> None:

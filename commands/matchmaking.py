@@ -68,11 +68,12 @@ class MatchmakingCog(commands.Cog):
             await interaction.response.send_message(message, ephemeral=True)
             return
 
-        day, start, end = result
-        await interaction.response.send_message(
-            f"{target.mention} is next available **{fmt_day(day)} {fmt_time(start)}–{fmt_time(end)}** (their local time).",
-            ephemeral=True,
-        )
+        day, start, end, is_now = result
+        if is_now:
+            msg = f"{target.mention} is available now until **{fmt_time(end)}** (their local time)."
+        else:
+            msg = f"{target.mention} is next available **{fmt_day(day)} {fmt_time(start)}–{fmt_time(end)}** (their local time)."
+        await interaction.response.send_message(msg, ephemeral=True)
 
     @app_commands.command(name="snooze", description="Temporarily hide from matchmaking until a time today.")
     @app_commands.describe(until="Time to snooze until (omit to check status)")

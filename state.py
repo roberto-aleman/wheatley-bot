@@ -290,8 +290,8 @@ class Database:
                 result[day].append({"start": start, "end": end})
         return result
 
-    def next_available(self, user_id: int, now_utc: datetime) -> tuple[str, str, str] | None:
-        """Return the next (day, start, end) slot for a user in their local time, or None."""
+    def next_available(self, user_id: int, now_utc: datetime) -> tuple[str, str, str, bool] | None:
+        """Return the next (day, start, end, is_now) slot for a user in their local time, or None."""
         tz_name = self.get_timezone(user_id)
         if not tz_name:
             return None
@@ -320,7 +320,8 @@ class Database:
                     continue
                 if offset == 0 and now_str >= end:
                     continue
-                return (day, start, end)
+                is_now = offset == 0 and start <= now_str < end
+                return (day, start, end, is_now)
 
         return None
 

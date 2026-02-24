@@ -28,7 +28,7 @@ A Discord bot for coordinating gaming sessions on a private server. Users save t
 | `/clear-availability <day>` | Clear all time slots for a weekday |
 | `/my-availability` | Show your weekly availability summary |
 | `/ready-to-play [game]` | Find available players who share your games, optionally filtered by game |
-| `/next-available [user]` | Show when a user is next available (defaults to yourself) |
+| `/next-available [user]` | Show when a user is next available, or if they're available now (defaults to yourself) |
 | `/snooze [until]` | Check your snooze status, or snooze until a time today |
 | `/unsnooze` | Cancel your snooze and show as available again |
 
