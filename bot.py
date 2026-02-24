@@ -28,7 +28,7 @@ EXTENSIONS = [
 
 class HourglassBot(commands.Bot):
     def __init__(self) -> None:
-        super().__init__(command_prefix="!", intents=discord.Intents.default())
+        super().__init__(command_prefix=commands.when_mentioned, intents=discord.Intents.default())
         try:
             self.db = Database()
         except Exception:
